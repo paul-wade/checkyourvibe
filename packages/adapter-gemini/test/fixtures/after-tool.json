@@ -1,0 +1,12 @@
+{
+  "tool_name": "replace",
+  "tool_input": {
+    "file_path": "/home/user/checkout/src/components/Widget.tsx",
+    "old_string": "let value: any = 1;",
+    "new_string": "let value: unknown = 1;"
+  },
+  "tool_response": {
+    "llmContent": "Replaced 1 occurrence of the requested text.",
+    "returnDisplay": "Updated Widget.tsx"
+  }
+}

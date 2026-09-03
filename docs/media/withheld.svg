@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1518" height="174" viewBox="0 0 1518 174" role="img" aria-label="findings it will not make">
+  <rect width="1518" height="174" rx="8" fill="#0B1017"/>
+  <rect width="1518" height="34" rx="8" fill="#111826"/>
+  <rect y="26" width="1518" height="8" fill="#111826"/>
+  <line x1="0" y1="34" x2="1518" y2="34" stroke="#1E2836" stroke-width="1"/>
+  <circle cx="20" cy="20" r="5.5" fill="#FF5F57" opacity="0.85"/><circle cx="37" cy="20" r="5.5" fill="#FEBC2E" opacity="0.85"/><circle cx="54" cy="20" r="5.5" fill="#28C840" opacity="0.85"/>
+  <text x="759" y="24" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="11" fill="#6E7B8C" letter-spacing="1.4">findings it will not make</text>
+  <g font-family="ui-monospace,SFMono-Regular,'Cascadia Mono',Consolas,monospace" font-size="13" xml:space="preserve">
+    <text y="44"><tspan x="18.0" fill="#6E7B8C">$ </tspan><tspan x="33.6" fill="#E8E3D9" font-weight="600">cyv check --all      # a tsconfig that resolves no types</tspan></text>
+    <text y="82"><tspan x="18.0" fill="#4FB286" font-weight="600">0 errors, 0 warnings, 1 file checked</tspan></text>
+    <text y="101"><tspan x="18.0" fill="#6E7B8C">  3 findings withheld from 1 file because type resolution was degraded for these files.</tspan></text>
+    <text y="120"><tspan x="18.0" fill="#6E7B8C">  Reason: No usable tsconfig.json governs these files (none found, or the nearest one is solution-style). Analysed with default compiler options, so inferred-type findings may be unreliable.</tspan></text>
+    <text y="139"><tspan x="18.0" fill="#6E7B8C">  Until the analyzer can resolve their types, their semantic findings are not reported. Fixing the configuration named above restores them.</tspan></text>
+  </g>
+</svg>

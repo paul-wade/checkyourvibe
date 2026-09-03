@@ -1,0 +1,79 @@
+{
+  "protocol": 1,
+  "id": "comments",
+  "supplements": true,
+  "match": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "**/*.mjs",
+    "**/*.cs",
+    "**/*.rs",
+    "**/*.py",
+    "**/*.go"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/*.d.ts",
+    "**/__pycache__/**",
+    "**/target/**"
+  ],
+  "exec": {
+    "type": "node",
+    "module": "./src/index.mjs"
+  },
+  "rules": [
+    {
+      "id": "no-editorial-comment",
+      "category": "clarity",
+      "pack": "comment-quality",
+      "scope": "file",
+      "evidence": "syntax",
+      "severity": "warning",
+      "summary": "A code comment describes the code; it does not argue about it.",
+      "why": "A description stays true for as long as the code does. An argument is written to persuade a reader at one moment, and the debate it answers is not in the file, so it rots immediately and misleads whoever reads it next. Comments that rehearse a decision, editorialise about quality, or address the reader rhetorically outlive the discussion that produced them.",
+      "allowedFixes": [
+        "State what the code does, in the fewest words that are accurate.",
+        "State a constraint the reader cannot infer from the code, such as an ordering requirement or an external contract.",
+        "Move the reasoning to the commit message, where it is dated and attached to the change that needed it.",
+        "Move a durable design decision to a document the code can reference by path.",
+        "Delete the comment when the code already says the same thing."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Soften the wording while keeping the argument.",
+          "because": "The comment still answers a debate that is not in the file, so it still rots when the debate is settled."
+        },
+        {
+          "pattern": "Move the editorial text into a TODO or NOTE marker.",
+          "because": "The marker changes how the comment is filed, not what it says; the argument is still there and still undated."
+        },
+        {
+          "pattern": "Replace the comment with a longer one that explains the reasoning more fully.",
+          "because": "Length is not the problem. A fuller argument is more to maintain and no more durable."
+        },
+        {
+          "pattern": "Delete the comment and leave a non-obvious constraint undocumented.",
+          "because": "This rule reports comments that argue, not comments that exist. Removing a genuine constraint trades an editorial comment for a missing one."
+        }
+      ],
+      "optionsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "phrases": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Extra phrases this repository treats as editorial, matched case-insensitively."
+          }
+        }
+      },
+      "examples": {
+        "bad": "// This is one file, overwritten, so it costs the same on the ten-thousandth\n// run as the first - and a dashboard that shows nothing until you rerun with a\n// flag you have never heard of is a dashboard nobody opens twice.\n\n// Obviously the cache has to be warmed first, which is the whole point of\n// doing it here rather than in the caller.",
+        "good": "// A single file, overwritten each run, so its cost does not grow with the\n// number of runs.\n\n// The cache must be warmed before the first read; a cold read returns null\n// rather than blocking."
+      }
+    }
+  ]
+}

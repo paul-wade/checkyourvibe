@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 700" width="1180" height="700" role="img" aria-label="The interlock: 50 arrows across 15 rules. Each arrow is a remediation that would trip the rule it points at. no-as-cast absorbs 13; no-any absorbs 12; no-ts-comment absorbs 9.">
+<style>.e{fill:none;stroke:#2b3a3d;stroke-width:1.1;opacity:.55}.e.hot{stroke:#f0512a;stroke-width:1.25;opacity:.42}.n circle{fill:#0a1416;stroke:#8a9294;stroke-width:1.5}.n.hub circle{stroke:#f0512a;stroke-width:2.5}.n.iso circle{stroke:#2b3a3d;stroke-dasharray:3 3}.n text{font:600 19px ui-monospace,Consolas,"DejaVu Sans Mono",monospace;fill:#e8e1d2}.n.hub text{font-size:25px;fill:#f0512a}.n.iso text{fill:#8a9294}.cap{font:600 17px ui-monospace,Consolas,monospace;fill:#8a9294;letter-spacing:.14em}</style>
+<defs><marker id="h" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#2b3a3d"/></marker><marker id="hh" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#f0512a" opacity=".7"/></marker></defs>
+<rect width="1180" height="700" fill="#0a1416"/>
+<path class="e hot" marker-end="url(#hh)" d="M590.0,358.0 Q492.5,358.0 376.8,358.0"/>
+<path class="e" marker-end="url(#h)" d="M590.0,358.0 Q686.6,283.6 827.7,174.9"/>
+<path class="e hot" marker-end="url(#hh)" d="M590.0,358.0 Q687.5,358.0 807.6,358.0"/>
+<path class="e" marker-end="url(#h)" d="M340.0,358.0 Q516.9,263.3 644.0,124.4"/>
+<path class="e" marker-end="url(#h)" d="M340.0,358.0 Q468.1,452.7 522.9,589.3"/>
+<path class="e hot" marker-end="url(#hh)" d="M340.0,358.0 Q590.0,358.0 807.6,358.0"/>
+<path class="e hot" marker-end="url(#hh)" d="M340.0,358.0 Q492.5,358.0 554.3,358.0"/>
+<path class="e" marker-end="url(#h)" d="M340.0,358.0 Q611.0,418.6 882.1,509.4"/>
+<path class="e hot" marker-end="url(#hh)" d="M652.5,115.1 Q516.9,263.3 372.4,340.6"/>
+<path class="e hot" marker-end="url(#hh)" d="M652.5,115.1 Q614.4,263.3 598.9,323.4"/>
+<path class="e hot" marker-end="url(#hh)" d="M652.5,115.1 Q711.9,263.3 813.9,338.7"/>
+<path class="e hot" marker-end="url(#hh)" d="M840.0,358.0 Q590.0,358.0 376.8,358.0"/>
+<path class="e hot" marker-end="url(#hh)" d="M840.0,358.0 Q687.5,358.0 625.7,358.0"/>
+<path class="e hot" marker-end="url(#hh)" d="M837.6,167.3 Q686.6,283.6 618.3,336.2"/>
+<path class="e hot" marker-end="url(#hh)" d="M837.6,167.3 Q589.1,283.6 375.3,347.5"/>
+<path class="e hot" marker-end="url(#hh)" d="M977.0,397.2 Q740.9,373.3 625.5,361.6"/>
+<path class="e hot" marker-end="url(#hh)" d="M977.0,397.2 Q643.4,373.3 376.8,359.9"/>
+<path class="e" marker-end="url(#h)" d="M977.0,397.2 Q795.3,463.0 735.2,576.9"/>
+<path class="e hot" marker-end="url(#hh)" d="M893.9,513.4 Q611.0,418.6 375.9,366.0"/>
+<path class="e hot" marker-end="url(#hh)" d="M893.9,513.4 Q708.5,418.6 621.8,374.3"/>
+<path class="e hot" marker-end="url(#hh)" d="M893.9,513.4 Q806.0,418.6 824.2,386.3"/>
+<path class="e" marker-end="url(#h)" d="M893.9,513.4 Q859.5,433.9 965.1,400.9"/>
+<path class="e" marker-end="url(#h)" d="M893.9,513.4 Q762.9,508.3 734.3,576.4"/>
+<path class="e" marker-end="url(#h)" d="M893.9,513.4 Q859.5,433.9 965.1,400.9"/>
+<path class="e hot" marker-end="url(#hh)" d="M729.4,587.9 Q644.4,447.7 608.5,388.5"/>
+<path class="e hot" marker-end="url(#hh)" d="M729.4,587.9 Q546.9,447.7 373.8,372.6"/>
+<path class="e" marker-end="url(#h)" d="M729.4,587.9 Q795.3,463.0 965.2,401.4"/>
+<path class="e hot" marker-end="url(#hh)" d="M729.4,587.9 Q741.9,447.7 816.1,379.9"/>
+<path class="e hot" marker-end="url(#hh)" d="M527.5,600.9 Q468.1,452.7 369.6,379.9"/>
+<path class="e" marker-end="url(#h)" d="M527.5,600.9 Q590.0,358.0 649.3,127.2"/>
+<path class="e hot" marker-end="url(#hh)" d="M527.5,600.9 Q565.6,452.7 581.1,392.6"/>
+<path class="e hot" marker-end="url(#hh)" d="M527.5,600.9 Q663.1,452.7 811.4,373.3"/>
+<path class="e" marker-end="url(#h)" d="M342.4,548.7 Q517.8,337.7 646.0,125.8"/>
+<path class="e hot" marker-end="url(#hh)" d="M342.4,548.7 Q395.9,432.4 362.1,387.4"/>
+<path class="e hot" marker-end="url(#hh)" d="M342.4,548.7 Q493.4,432.4 561.7,379.8"/>
+<path class="e" marker-end="url(#h)" d="M342.4,548.7 Q342.5,417.1 213.2,326.0"/>
+<path class="e hot" marker-end="url(#hh)" d="M223.6,445.5 Q349.6,392.1 350.0,393.4"/>
+<path class="e" marker-end="url(#h)" d="M223.6,445.5 Q471.5,297.4 643.6,124.0"/>
+<path class="e hot" marker-end="url(#hh)" d="M223.6,445.5 Q447.1,392.1 555.3,366.3"/>
+<path class="e hot" marker-end="url(#hh)" d="M223.6,445.5 Q544.6,392.1 807.8,361.7"/>
+<path class="e" marker-end="url(#h)" d="M203.0,318.8 Q463.4,248.0 642.2,122.3"/>
+<path class="e hot" marker-end="url(#hh)" d="M203.0,318.8 Q341.6,342.7 343.8,321.4"/>
+<path class="e hot" marker-end="url(#hh)" d="M203.0,318.8 Q439.1,342.7 554.5,354.4"/>
+<path class="e hot" marker-end="url(#hh)" d="M203.0,318.8 Q536.6,342.7 807.6,356.4"/>
+<path class="e" marker-end="url(#h)" d="M203.0,318.8 Q296.2,376.8 232.7,436.9"/>
+<path class="e hot" marker-end="url(#hh)" d="M286.1,202.6 Q374.0,297.4 358.0,325.9"/>
+<path class="e" marker-end="url(#h)" d="M286.1,202.6 Q495.8,202.7 641.5,121.2"/>
+<path class="e hot" marker-end="url(#hh)" d="M450.6,128.1 Q438.1,268.3 367.2,333.2"/>
+<path class="e hot" marker-end="url(#hh)" d="M450.6,128.1 Q535.6,268.3 571.5,327.5"/>
+<path class="e hot" marker-end="url(#hh)" d="M450.6,128.1 Q633.1,268.3 810.3,345.1"/>
+<g class="n hub"><circle cx="590.0" cy="358.0" r="30.2"/><text x="590.0" y="313.8" text-anchor="middle">any</text></g>
+<g class="n hub"><circle cx="340.0" cy="358.0" r="31.3"/><text x="340.0" y="312.7" text-anchor="middle">as-cast</text></g>
+<g class="n"><circle cx="652.5" cy="115.1" r="7.0"/><text x="652.5" y="100.1" text-anchor="middle">non-null-assertion</text></g>
+<g class="n hub"><circle cx="840.0" cy="358.0" r="26.9"/><text x="840.0" y="317.1" text-anchor="middle">ts-comment</text></g>
+<g class="n"><circle cx="837.6" cy="167.3" r="7.0"/><text x="837.6" y="152.3" text-anchor="middle">useless-types</text></g>
+<g class="n iso"><circle cx="956.4" cy="270.5" r="7.0"/><text x="956.4" y="255.5" text-anchor="middle">console</text></g>
+<g class="n"><circle cx="977.0" cy="397.2" r="7.0"/><text x="977.0" y="424.2" text-anchor="middle">swallowed-catch</text></g>
+<g class="n"><circle cx="893.9" cy="513.4" r="7.0"/><text x="893.9" y="540.4" text-anchor="middle">floating-promise</text></g>
+<g class="n"><circle cx="729.4" cy="587.9" r="7.0"/><text x="729.4" y="614.9" text-anchor="middle">broad-catch-rethrow</text></g>
+<g class="n"><circle cx="527.5" cy="600.9" r="7.0"/><text x="527.5" y="627.9" text-anchor="middle">json-parse-cast</text></g>
+<g class="n"><circle cx="342.4" cy="548.7" r="7.0"/><text x="342.4" y="575.7" text-anchor="middle">unsafe-index-access</text></g>
+<g class="n"><circle cx="223.6" cy="445.5" r="7.0"/><text x="223.6" y="472.5" text-anchor="middle">unsafe-array-narrowing</text></g>
+<g class="n"><circle cx="203.0" cy="318.8" r="7.0"/><text x="203.0" y="303.8" text-anchor="middle">non-null-index-write</text></g>
+<g class="n"><circle cx="286.1" cy="202.6" r="7.0"/><text x="286.1" y="187.6" text-anchor="middle">tautological-assertion</text></g>
+<g class="n"><circle cx="450.6" cy="128.1" r="7.0"/><text x="450.6" y="113.1" text-anchor="middle">module-augmentation</text></g>
+<text class="cap" x="590" y="26" text-anchor="middle">50 DEAD ENDS ACROSS 15 RULES · EVERY NAME READS no-…</text>
+</svg>

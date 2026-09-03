@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://checkyourvibe.dev/schema/rule-manifest.json",
+  "title": "RuleManifest",
+  "description": "Static metadata describing a rule and how to fix violations of it.",
+  "type": "object",
+  "$ref": "#/$defs/RuleManifest",
+  "$defs": {
+    "NotFix": {
+      "title": "NotFix",
+      "description": "A remediation that looks like a fix but trips a different rule.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "description": "Short description of the tempting non-fix, e.g. \"widen to unknown\"."
+        },
+        "because": {
+          "type": "string",
+          "description": "Why it does not actually solve the problem."
+        },
+        "rule": {
+          "type": "string",
+          "description": "The rule id this non-fix would trip, when there is one."
+        }
+      },
+      "required": [
+        "pattern",
+        "because"
+      ]
+    },
+    "RuleGuidance": {
+      "title": "RuleGuidance",
+      "description": "The explanatory half of a rule — everything a human or agent needs to fix it.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "One line. Shown inline with the violation."
+        },
+        "why": {
+          "type": "string",
+          "description": "Why the rule exists. Reasoning, not restatement."
+        },
+        "allowedFixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Concrete remediations, each independently sufficient."
+        },
+        "notFixes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NotFix"
+          },
+          "description": "Dead-end remediations that should not be used."
+        },
+        "examples": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bad": {
+              "type": "string",
+              "description": "Example of code that violates the rule."
+            },
+            "good": {
+              "type": "string",
+              "description": "Example of code that satisfies the rule."
+            }
+          },
+          "required": [
+            "bad",
+            "good"
+          ],
+          "description": "Concrete bad and good examples for the rule."
+        }
+      },
+      "required": [
+        "summary",
+        "why",
+        "allowedFixes",
+        "notFixes",
+        "examples"
+      ]
+    },
+    "RuleManifest": {
+      "title": "RuleManifest",
+      "description": "Full static metadata for a rule, including guidance and execution scope.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this rule."
+        },
+        "category": {
+          "type": "string",
+          "description": "Free-form grouping for report output, e.g. \"type-safety\"."
+        },
+        "pack": {
+          "type": "string",
+          "description": "The rule pack this rule ships in, e.g. \"core-ts\". Configuration enables rules by pack, so pack membership must be discoverable from the static manifest — otherwise packs: [\"core-ts\"] expands to nothing and silently enables no rules at all."
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "file",
+            "project"
+          ],
+          "description": "Whether the rule examines one file or needs the whole project."
+        },
+        "severity": {
+          "$ref": "https://checkyourvibe.dev/schema/violation.json#/$defs/Severity",
+          "description": "Default severity. Configuration may override it."
+        },
+        "evidence": {
+          "type": "string",
+          "enum": [
+            "syntax",
+            "semantic"
+          ],
+          "description": "What kind of evidence this rule's findings rest on. 'semantic' means the analyzer consulted a type system or symbol table; 'syntax' means it matched shape alone. Severity is deliberately not the lever for this: severity measures impact, this measures confidence, and they are independent. Omitted means unspecified, not semantic — an analyzer that has not considered the question should not be assumed to hold the stronger claim."
+        },
+        "summary": {
+          "type": "string",
+          "description": "One line. Shown inline with the violation."
+        },
+        "why": {
+          "type": "string",
+          "description": "Why the rule exists. Reasoning, not restatement."
+        },
+        "allowedFixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Concrete remediations, each independently sufficient."
+        },
+        "notFixes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NotFix"
+          },
+          "description": "Dead-end remediations that should not be used."
+        },
+        "examples": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bad": {
+              "type": "string",
+              "description": "Example of code that violates the rule."
+            },
+            "good": {
+              "type": "string",
+              "description": "Example of code that satisfies the rule."
+            }
+          },
+          "required": [
+            "bad",
+            "good"
+          ],
+          "description": "Concrete bad and good examples for the rule."
+        },
+        "optionsSchema": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "JSON Schema for this rule's options, when it takes any."
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "scope",
+        "severity",
+        "summary",
+        "why",
+        "allowedFixes",
+        "notFixes",
+        "examples"
+      ]
+    }
+  }
+}

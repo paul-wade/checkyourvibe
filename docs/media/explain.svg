@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="715" height="592" viewBox="0 0 715 592" role="img" aria-label="cyv explain">
+  <rect width="715" height="592" rx="8" fill="#0B1017"/>
+  <rect width="715" height="34" rx="8" fill="#111826"/>
+  <rect y="26" width="715" height="8" fill="#111826"/>
+  <line x1="0" y1="34" x2="715" y2="34" stroke="#1E2836" stroke-width="1"/>
+  <circle cx="20" cy="20" r="5.5" fill="#FF5F57" opacity="0.85"/><circle cx="37" cy="20" r="5.5" fill="#FEBC2E" opacity="0.85"/><circle cx="54" cy="20" r="5.5" fill="#28C840" opacity="0.85"/>
+  <text x="357.5" y="24" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="11" fill="#6E7B8C" letter-spacing="1.4">cyv explain</text>
+  <g font-family="ui-monospace,SFMono-Regular,'Cascadia Mono',Consolas,monospace" font-size="13" xml:space="preserve">
+    <text y="44"><tspan x="18.0" fill="#6E7B8C">$ </tspan><tspan x="33.6" fill="#E8E3D9" font-weight="600">cyv explain no-floating-promise</tspan></text>
+    <text y="82"><tspan x="18.0" fill="#E8E3D9" font-weight="600">no-floating-promise</tspan></text>
+    <text y="120"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Pack: core-ts</tspan></text>
+    <text y="139"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Category: reliability</tspan></text>
+    <text y="158"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Severity: error</tspan></text>
+    <text y="177"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Scope: file</tspan></text>
+    <text y="196"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Evidence: semantic</tspan></text>
+    <text y="215"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Analyzer: typescript</tspan></text>
+    <text y="234"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Enabled: yes</tspan></text>
+    <text y="272"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Summary</tspan></text>
+    <text y="291"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Do not leave a promise unhandled; await it, return it, assign it, or explicitly handle</tspan></text>
+    <text y="310"><tspan x="18.0" fill="#E8E3D9" font-weight="600">it.</tspan></text>
+    <text y="348"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Why</tspan></text>
+    <text y="367"><tspan x="18.0" fill="#E8E3D9" font-weight="600">A call that returns a Promise represents work that may fail asynchronously. If the</tspan></text>
+    <text y="386"><tspan x="18.0" fill="#E8E3D9" font-weight="600">result is not awaited, returned, stored, or explicitly handled, a rejection becomes an</tspan></text>
+    <text y="405"><tspan x="18.0" fill="#E8E3D9" font-weight="600">unhandled rejection at a later, unrelated point in the program. The type checker is the</tspan></text>
+    <text y="424"><tspan x="18.0" fill="#E8E3D9" font-weight="600">only way to know whether a call returns a Promise, so this rule is semantic.</tspan></text>
+    <text y="462"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Allowed fixes</tspan></text>
+    <text y="481"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Await the promise with `await`.</tspan></text>
+    <text y="500"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Return the promise so the caller can await it.</tspan></text>
+    <text y="519"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Assign the promise to a variable and attach a rejection handler.</tspan></text>
+    <text y="538"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Attach a rejection handler with `.catch(...)` or `.then(onFulfilled, onRejected)`.</tspan></text>
+    <text y="557"><tspan x="18.0" fill="#E8E3D9" font-weight="600">Pass the promise to a consumer such as `Promise.all` and await the combined result.</tspan></text>
+  </g>
+</svg>

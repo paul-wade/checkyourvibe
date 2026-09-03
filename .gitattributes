@@ -1,0 +1,26 @@
+# Line endings are normalised to LF in the repository. Without this, a checkout
+# made on Windows commits CRLF into files that a POSIX shell then refuses:
+# `install.sh` with CRLF fails on macOS and Linux with "bad interpreter: ^M",
+# which reads as a broken repository rather than a line-ending problem.
+* text=auto eol=lf
+
+# Shell scripts must have LF regardless of any local core.autocrlf setting.
+*.sh text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+
+# PowerShell is read by Windows tooling; CRLF is correct there.
+*.ps1 text eol=crlf
+
+# Binary, never converted.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.dll binary
+*.exe binary

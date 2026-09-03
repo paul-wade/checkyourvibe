@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://checkyourvibe.dev/schema/analyzer-manifest.json",
+  "title": "AnalyzerManifest",
+  "description": "Static description of an analyzer. Readable without executing the analyzer or booting its language toolchain, so rule metadata costs nothing to inspect.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "id",
+    "match",
+    "rules",
+    "exec"
+  ],
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "description": "Protocol version. A mismatch is rejected rather than coerced."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique analyzer identifier, referenced by configuration and reported in routing errors."
+    },
+    "match": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "description": "Globs, relative to the repository root, for files this analyzer claims. A file claimed by two analyzers is a configuration error, never a silent first-match win."
+    },
+    "exclude": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Globs subtracted from match before routing."
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "https://checkyourvibe.dev/schema/rule-manifest.json"
+      },
+      "description": "Full manifest for every rule this analyzer provides, including guidance. Present here so the core can render rule documentation and generate agent glue without loading the analyzer."
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional capability flags. Reserved for forward compatibility.",
+      "properties": {
+        "session": {
+          "type": "boolean",
+          "description": "Reserved: whether the analyzer supports a long-lived session protocol. Unused in protocol 1."
+        }
+      }
+    },
+    "exec": {
+      "description": "How the core invokes this analyzer. Both shapes satisfy the identical request and response schemas.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "module"
+          ],
+          "properties": {
+            "type": {
+              "const": "node",
+              "description": "In-process fast path: the core imports the module into its own process and calls the module's default export with the AnalyzeRequest as its one argument, awaiting the AnalyzeResponse it returns. Nothing is spawned. The request is never written to the module's stdin, and stdout is not read for a response. A module that waits for stdin at import time waits for input that is never sent, and the import never settles. No serialization, and watch mode can hold warm state."
+            },
+            "module": {
+              "type": "string",
+              "description": "Path to the module. A value beginning with ./ or ../ is resolved against this manifest's directory when the manifest is loaded, before the analyzer runs; an absolute path or a file: URL is used as written; any other value is a package specifier, resolved by Node from the checkyourvibe core package rather than from this manifest or the repository. The module's default export must be an AnalyzeFn: (request) => Promise<AnalyzeResponse>."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "command"
+          ],
+          "properties": {
+            "type": {
+              "const": "process",
+              "description": "Universal path: any runtime that can read a JSON request from stdin and write a JSON response to stdout. This is what makes analyzers outside the Node ecosystem possible."
+            },
+            "command": {
+              "type": "string",
+              "description": "Executable to spawn. A bare name is looked up on PATH; a value beginning with ./ or ../ is resolved against this manifest's directory at load time. The working directory of the spawned process is NOT guaranteed to be the repository root, so never depend on it for path resolution."
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Arguments passed to the command. Any argument beginning with ./ or ../ is resolved against this manifest's directory when the manifest is loaded, before the process is spawned. This is what makes the portable form work: command \"dotnet\" or \"python\" with a relative artefact path in args. Do not rely on the working directory \u2014 callers may spawn the analyzer from anywhere."
+            }
+          }
+        }
+      ]
+    },
+    "supplements": {
+      "type": "boolean",
+      "description": "Whether this analyzer supplements the analyzer that owns a file rather than claiming the file itself. Ownership is otherwise exclusive: two analyzers matching one file is a configuration error. A supplemental analyzer is exempt from that check, never counts as a file's claimant, and does not count toward the run's files-checked total."
+    }
+  }
+}

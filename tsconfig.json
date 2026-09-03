@@ -1,0 +1,29 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/analyzer-typescript"
+    },
+    {
+      "path": "packages/adapter-claude-code"
+    },
+    {
+      "path": "packages/adapter-cursor"
+    },
+    {
+      "path": "packages/adapter-gemini"
+    },
+    {
+      "path": "packages/adapter-antigravity"
+    },
+    {
+      "path": "packages/adapter-codex"
+    },
+    {
+      "path": "packages/adapter-devin"
+    }
+  ]
+}

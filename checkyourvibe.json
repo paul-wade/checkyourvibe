@@ -1,0 +1,133 @@
+{
+  "$schema": "./docs/protocol/config.schema.json",
+  "packs": [
+    "core-ts",
+    "strict-boundaries",
+    "test-quality",
+    "core-cs",
+    "comment-quality"
+  ],
+  "analyzers": [
+    {
+      "id": "typescript",
+      "package": "./packages/analyzer-typescript/analyzer.manifest.json"
+    },
+    {
+      "id": "csharp",
+      "package": "./packages/analyzer-csharp/analyzer.manifest.json"
+    },
+    {
+      "id": "comments",
+      "package": "./packages/analyzer-comments/analyzer.manifest.json"
+    }
+  ],
+  "agents": [
+    "antigravity",
+    "claude-code",
+    "devin"
+  ],
+  "executor": {
+    "lanes": [
+      {
+        "id": "antigravity-cli",
+        "agentId": "antigravity",
+        "concurrencyCap": 1,
+        "billing": {
+          "kind": "subscription",
+          "permitsBilledOverage": false
+        },
+        "orchestrator": false,
+        "models": [
+          {
+            "kind": "mechanical-transformation",
+            "ordering": [
+              "claude-sonnet-4-6",
+              "gemini-3.7-flash-high",
+              "gemini-3.7-flash-medium"
+            ]
+          },
+          {
+            "kind": "judgment-required",
+            "ordering": [
+              "claude-opus-4-6-thinking",
+              "gemini-3.1-pro-high",
+              "claude-sonnet-4-6"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "devin-cli",
+        "agentId": "devin",
+        "concurrencyCap": 1,
+        "billing": {
+          "kind": "subscription",
+          "permitsBilledOverage": false
+        },
+        "orchestrator": false,
+        "models": [
+          {
+            "kind": "mechanical-transformation",
+            "ordering": [
+              "swe-1-7",
+              "swe-1-7-medium"
+            ]
+          },
+          {
+            "kind": "judgment-required",
+            "ordering": [
+              "swe-1-7"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "claude-code-cli",
+        "agentId": "claude-code",
+        "concurrencyCap": 1,
+        "billing": {
+          "kind": "subscription",
+          "permitsBilledOverage": false
+        },
+        "orchestrator": true,
+        "models": [
+          {
+            "kind": "mechanical-transformation",
+            "ordering": [
+              "opus",
+              "sonnet",
+              "haiku"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "rules": {
+    "no-console": {
+      "severity": "warning",
+      "allowedMethods": [
+        "error",
+        "warn"
+      ]
+    }
+  },
+  "overrides": [
+    {
+      "files": [
+        "packages/core/src/cli/**"
+      ],
+      "reason": "These files are the cyv command-line interface; their whole job is to write user-facing output (usage, results, prompts) to stdout and stderr, which is exactly what no-console is meant to stop library code from doing.",
+      "rules": {
+        "no-console": false
+      }
+    }
+  ],
+  "strict": true,
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "packages/*/test/fixtures/**",
+    "packages/analyzer-csharp/fixtures/**"
+  ]
+}

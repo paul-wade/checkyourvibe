@@ -1,0 +1,16 @@
+{
+  "conversation_id": "8f1c9e0a-2b3d-4c5e-9f6a-7b8c9d0e1f2a",
+  "generation_id": "gen_01hqx3y4z5",
+  "hook_event_name": "afterFileEdit",
+  "model": "cursor-fast",
+  "cursor_version": "1.7.2",
+  "workspace_roots": ["/home/user/checkout"],
+  "user_email": "user@example.com",
+  "file_path": "/home/user/checkout/src/components/Widget.tsx",
+  "edits": [
+    {
+      "old_string": "let value: any = 1;",
+      "new_string": "let value: unknown = 1;"
+    }
+  ]
+}

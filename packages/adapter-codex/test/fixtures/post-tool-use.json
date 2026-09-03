@@ -1,0 +1,17 @@
+{
+  "session_id": "sess_0003",
+  "transcript_path": "/home/user/.codex/transcripts/7b3f9a2c.json",
+  "cwd": "/home/user/checkout",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-4o",
+  "permission_mode": "write",
+  "turn_id": "turn_7b3f9a2c",
+  "tool_name": "apply_patch",
+  "tool_use_id": "call_7b3f9a2c",
+  "tool_input": {
+    "command": "<<<<<<< SEARCH\nlet value: any = 1;\n=======\nlet value: unknown = 1;\n>>>>>>> REPLACE\n\n/path/to/file.ts\n"
+  },
+  "tool_response": {
+    "message": "Patch applied."
+  }
+}

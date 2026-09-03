@@ -1,0 +1,25 @@
+{
+  "name": "@checkyourvibe/adapter-cursor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent plugin for the Cursor CLI.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/checkyourvibe/checkyourvibe.git"
+  },
+  "author": "checkyourvibe",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "peerDependencies": {
+    "@checkyourvibe/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@checkyourvibe/core": "workspace:*"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://checkyourvibe.dev/schema/analyze-request.json",
+  "title": "AnalyzeRequest",
+  "description": "Request sent from the core to an analyzer.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "description": "Protocol version. Always 1 for this schema."
+    },
+    "repoRoot": {
+      "type": "string",
+      "description": "Root path of the repository being analyzed."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["file", "project"],
+      "description": "Whether to run file-scope rules only or include project-scope rules."
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Absolute paths of files to analyze."
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "severity": {
+            "$ref": "https://checkyourvibe.dev/schema/violation.json#/$defs/Severity",
+            "description": "Configured severity for this rule."
+          }
+        },
+        "required": ["severity"]
+      },
+      "description": "Per-rule configuration keyed by rule id. Only enabled rules appear."
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Analyzer-specific options passed through opaquely from configuration."
+    }
+  },
+  "required": ["protocol", "repoRoot", "mode", "files", "rules"]
+}

@@ -1,0 +1,26 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.local
+*.tsbuildinfo
+.cyv-review/
+
+# .NET build output
+bin/
+obj/
+*.tsbuildinfo
+
+# Real provenance deny list — names the employer/people/products being scrubbed.
+# Committing it would publish exactly what the check exists to prevent.
+.cyv-provenance-deny
+target/
+# A pnpm store created inside the checkout. 5.5 GB, and vitest was matching
+# test files inside it, so every suite ran twice.
+.pnpm-store/
+.cyv-dispatch/
+
+# Agent worktrees and local session state, never shared.
+.claude/

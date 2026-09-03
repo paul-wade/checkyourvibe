@@ -1,0 +1,38 @@
+{
+  "name": "@checkyourvibe/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Core runtime, analyzer protocol, rule registry, reporting, and the cyv CLI.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/checkyourvibe/checkyourvibe.git"
+  },
+  "author": "checkyourvibe",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/schema/*.json",
+    "vendor/*.js"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "cyv": "./dist/cli/index.js"
+  },
+  "dependencies": {
+    "@checkyourvibe/adapter-antigravity": "workspace:*",
+    "@checkyourvibe/adapter-claude-code": "workspace:*",
+    "@checkyourvibe/adapter-codex": "workspace:*",
+    "@checkyourvibe/adapter-cursor": "workspace:*",
+    "@checkyourvibe/adapter-devin": "workspace:*",
+    "@checkyourvibe/adapter-gemini": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ajv": "^8.17.0",
+    "picomatch": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/picomatch": "^3.0.0"
+  }
+}

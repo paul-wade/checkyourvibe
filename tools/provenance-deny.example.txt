@@ -1,0 +1,59 @@
+# Example provenance deny list.
+#
+# Copy to .cyv-provenance-deny in the repository root (gitignored), or point
+# CYV_PROVENANCE_DENY at a file anywhere on disk.
+#
+# One entry per line:   label: pattern
+# `pattern` is an extended regex, matched case-insensitively by `git grep -E`.
+# Blank lines and lines beginning with # are ignored.
+#
+# THIS FILE IS AN EXAMPLE AND CONTAINS NO REAL TERMS ON PURPOSE. The real list
+# names the employer, people and products being scrubbed — which is exactly the
+# disclosure the check exists to prevent. Committing it would state, precisely
+# and permanently, what a stray mention would only have hinted at.
+#
+# Prefer word boundaries. An unanchored fragment matches inside ordinary English
+# and inside compiled binaries: a three-letter product name once matched
+# "covariant" in every .NET assembly in the tree and failed the build for a word
+# the compiler uses constantly. A check that cries wolf gets disabled, and then
+# it protects nothing.
+
+# Patterns are POSIX extended regular expressions, because `git grep -E` is what
+# runs them. There is no lookahead, no non-greedy quantifier and no \d. A Perl
+# pattern is rejected with exit 128 rather than matching nothing.
+#
+# That limit has a consequence worth knowing before you write a clever pattern:
+# you cannot say "this shape, except these known-innocent prefixes". A generic
+# issue-key pattern like \b[A-Z]{2,6}-[0-9]{2,}\b cannot exclude SHA-256,
+# UTF-16, ISO-8601 or AES-256, and the scan is case-insensitive so it hits
+# "utf-8" too. Name the specific term instead of excluding the others.
+#
+# Two kinds of entry earn their place here. NAMED terms — the employer, the
+# people, the products — are what the check exists for, and nothing substitutes
+# for them. STRUCTURAL terms catch the shape a leak takes without naming
+# anything, and are worth adding because they keep working when a name you did
+# not think of shows up in the shape you did.
+
+employer:              \bacme\b
+employer:              \bacme-corp\b
+
+personal name:         \bjane\b
+personal name:         \bjdoe\b
+
+internal service:      \bwidgetron\b
+internal service:      \bsprocket-api\b
+
+vendor recommendation: \bexamplelogger\b
+
+internal doc path:     docs/INTERNAL-[A-Z-]+\.md
+internal doc path:     \bconfluence\.example\.com\b
+
+internal identifier:   \bPROJ-[0-9]{3,}\b
+
+# Structural entries, which need no name to be useful:
+
+internal host:         \b[a-z0-9-]+\.(corp|internal|intranet|lan)\b
+internal host:         \b(confluence|jira|bitbucket|artifactory|jenkins)\.[a-z0-9-]+\.[a-z]{2,}
+review reference:      \b(PR|MR) ?#[0-9]+
+review reference:      as (discussed|agreed|decided) in (the )?(review|standup|retro)
+cloud account:         \barn:aws:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}\b

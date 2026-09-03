@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `pnpm build` is `tsc -b` plus the schema copy. Running only `tsc -b`
+      # left `packages/core/dist/schema/` empty, so the installed-package test
+      # failed at collection and every later step ran against a dist without
+      # the schemas `check` and `verify-analyzer` need.
+      - name: Build
+        run: pnpm build
+
+      - name: Build C# analyzer
+        working-directory: packages/analyzer-csharp/src
+        run: dotnet build -c Release
+
+      - name: Build Rust analyzer
+        working-directory: packages/analyzer-rust
+        run: cargo build --release
+
+      - name: Run tests
+        run: pnpm exec vitest run
+
+      # The deny list names the employer, people and products this rebuild is
+      # scrubbing, so it cannot live in the repository — committing it would be
+      # the disclosure the check exists to prevent. CI receives it as a secret.
+      #
+      # If the secret is absent the check exits 2 and fails the build, rather
+      # than passing while verifying nothing.
+      - name: Provenance check
+        env:
+          CYV_PROVENANCE_DENY_CONTENT: ${{ secrets.CYV_PROVENANCE_DENY }}
+        run: |
+          if [ -n "$CYV_PROVENANCE_DENY_CONTENT" ]; then
+            printf '%s\n' "$CYV_PROVENANCE_DENY_CONTENT" > .cyv-provenance-deny
+          fi
+          node tools/provenance-check.mjs
+
+      # The interlock drawing is generated from the rule manifests.
+      # The hand-made one it replaced silently stopped being true — a rule
+      # shipped in spec 0038 and never appeared in the picture — so this is the
+      # gate that makes the drawing a fact rather than a good intention.
+      - name: Interlock drawing is current
+        run: node tools/interlock-svg.mjs --check
+
+
+      # Every analyzer, not only the ones this repository registers. Python and
+      # Rust are deliberately not in checkyourvibe.json — there is no Python or
+      # Rust here to check — which means `check --all` would never touch them
+      # and a protocol change could break them without failing anything.
+      - name: Analyzer conformance
+        run: |
+          for manifest in packages/analyzer-*/analyzer.manifest.json; do
+            echo "--- $manifest"
+            node packages/core/dist/cli/index.js verify-analyzer "$manifest"
+          done
+
+      # `verify-analyzer` above proves each manifest still loads. It does not
+      # run a single rule. Each non-TypeScript analyzer ships a fixture harness
+      # that drives the real subprocess against every .bad/.ok pair, and none of
+      # them were reachable from any command: the fixtures are C#, Python and
+      # Rust, so `vitest run` never sees them, and nothing else invoked them.
+      #
+      # They were orphaned long enough for the C# harness to stop working: it
+      # dropped the manifest's exec.args and spawned a bare `dotnet` with
+      # nothing to run.
+      - name: Analyzer fixtures
+        run: |
+          for harness in packages/analyzer-*/test/run-fixtures.mjs; do
+            echo "--- $harness"
+            node "$harness"
+          done
+
+      # The step above iterates over the harnesses that exist, so an analyzer
+      # without one is skipped rather than reported and the run stays green.
+      # This names every analyzer and how it is exercised, and fails on any that
+      # is exercised by nothing.
+      - name: Analyzer coverage
+        run: node tools/analyzer-coverage.mjs
+
+      # The SARIF report and the gate are two separate things, deliberately.
+      #
+      # A single step would have to either skip the upload when the check
+      # fails, losing the report, or stop failing the build. So: run once, keep
+      # the exit code, upload the report, then fail on the recorded code.
+      - name: Self-check (SARIF)
+        id: selfcheck
+        run: |
+          set +e
+          node packages/core/dist/cli/index.js check --all --strict --sarif > cyv.sarif
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: cyv.sarif
+          category: checkyourvibe
+        continue-on-error: true
+
+      - name: Self-check gate
+        run: |
+          code='${{ steps.selfcheck.outputs.exit_code }}'
+          if [ "$code" != "0" ]; then
+            echo "cyv check --all --strict exited $code"
+            node packages/core/dist/cli/index.js check --all --strict
+            exit "$code"
+          fi

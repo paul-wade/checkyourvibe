@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://checkyourvibe.dev/schema/violation.json",
+  "title": "Violation",
+  "description": "The unit of output from an analyzer. Deliberately language-agnostic.",
+  "type": "object",
+  "$ref": "#/$defs/Violation",
+  "$defs": {
+    "Violation": {
+      "title": "Violation",
+      "description": "A single rule violation found in a source file.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Absolute path. Analyzers must not report repo-relative paths."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based."
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based."
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional 1-based ending line of the violation range."
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional 1-based ending column of the violation range."
+        },
+        "ruleId": {
+          "type": "string",
+          "description": "Identifier of the rule that was violated."
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable description of the violation."
+        },
+        "snippet": {
+          "type": "string",
+          "description": "The offending source text, whitespace-collapsed and truncated to 200 characters (with a trailing ellipsis when cut). The limit is stated numerically here on purpose: an analyzer written outside this repository cannot read a constant that lives only in the core's source."
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity",
+          "description": "Severity of this violation."
+        },
+        "guidance": {
+          "$ref": "https://checkyourvibe.dev/schema/rule-manifest.json#/$defs/RuleGuidance",
+          "description": "Remediation guidance attached by the core from the rule's manifest."
+        }
+      },
+      "required": ["file", "line", "column", "ruleId", "message", "snippet", "severity"]
+    },
+    "SkippedFile": {
+      "title": "SkippedFile",
+      "description": "A file an analyzer could not process.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Absolute path of the file that could not be processed."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Explanation of why the file was skipped."
+        }
+      },
+      "required": ["file", "reason"]
+    },
+    "Diagnostic": {
+      "title": "Diagnostic",
+      "description": "A runtime diagnostic emitted by an analyzer.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["info", "warn", "error"],
+          "description": "Severity level of the diagnostic."
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable diagnostic message."
+        }
+      },
+      "required": ["level", "message"]
+    },
+    "Severity": {
+      "title": "Severity",
+      "description": "Default severity of a violation or rule.",
+      "type": "string",
+      "enum": ["error", "warning"]
+    }
+  }
+}

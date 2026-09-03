@@ -1,0 +1,137 @@
+{
+  "protocol": 1,
+  "id": "python",
+  "match": [
+    "**/*.py"
+  ],
+  "exclude": [
+    "**/__pycache__/**",
+    "**/.venv/**",
+    "**/venv/**"
+  ],
+  "exec": {
+    "type": "process",
+    "command": "python",
+    "args": [
+      "./analyze.py"
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-bare-except",
+      "category": "error-handling",
+      "pack": "core-py",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not use a bare `except:` clause.",
+      "why": "A bare `except:` catches `BaseException`, which includes `KeyboardInterrupt`, `SystemExit`, and generator-exit signals. It also catches every bug and unexpected failure the author did not plan for, making the program continue in an uncertain state and hiding the real problem from anyone trying to diagnose it.",
+      "allowedFixes": [
+        "Catch the specific exception type you can handle, such as `except ValueError:`.",
+        "Catch `Exception` if you genuinely intend to handle all non-fatal runtime errors, so control-flow exceptions still propagate.",
+        "Rethrow the exception after handling it, or log it and re-raise if this layer is not the right place to recover."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Catch `Exception` and silently pass.",
+          "because": "`Exception` still swallows unexpected errors; the fix is to do something useful with the exception, not only to narrow the type."
+        },
+        {
+          "pattern": "Use `except BaseException:` to be explicit.",
+          "because": "It has the same overly broad effect as a bare `except:` and is reported by this rule for the same reason."
+        }
+      ],
+      "examples": {
+        "bad": "def fetch():\n    try:\n        return read()\n    except:\n        pass",
+        "good": "def fetch():\n    try:\n        return read()\n    except Exception as e:\n        log(e)\n        raise"
+      }
+    },
+    {
+      "id": "no-mutable-default-arg",
+      "category": "correctness",
+      "pack": "core-py",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not use a mutable object as a default argument value.",
+      "why": "Default argument values are evaluated once when the function is defined, not each time the function is called. A list, dict, or set supplied as a default is shared by every call that omits that argument, so later mutations persist and leak state between callers.",
+      "allowedFixes": [
+        "Use `None` as the default and create a fresh object inside the function.",
+        "Use an immutable sentinel such as an empty tuple `()` if an empty value is truly required.",
+        "Move the default value into a clearly named constant that is intended to be shared, and make sure the function treats it as read-only."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Use a helper function that returns a fresh empty list as the default expression.",
+          "because": "The helper is still called once at definition time, so it returns a single object that is shared across every call."
+        },
+        {
+          "pattern": "Copy the default at the call site instead of inside the function.",
+          "because": "The default object is still shared; callers that do not remember to copy continue to leak state."
+        }
+      ],
+      "examples": {
+        "bad": "def append(item, items=[]):\n    items.append(item)\n    return items",
+        "good": "def append(item, items=None):\n    if items is None:\n        items = []\n    items.append(item)\n    return items"
+      }
+    },
+    {
+      "id": "no-assert-for-validation",
+      "category": "reliability",
+      "pack": "core-py",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not use `assert` to enforce checks that must hold in production.",
+      "why": "When Python runs with the `-O` optimization flag, every `assert` statement is removed from the compiled bytecode. A check that gates security, input validity, or an important invariant then disappears without a trace, and the program continues on assumptions that are no longer verified.",
+      "allowedFixes": [
+        "Replace the assert with an explicit `if` check and raise a proper exception such as `ValueError` or `TypeError`.",
+        "Use a dedicated validation function that runs regardless of optimization.",
+        "For internal invariants that are only checked during development, keep the assert but ensure the program behaves correctly if it is stripped."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Add a message string to the assert.",
+          "because": "The message is also removed under `-O`; the whole statement is stripped, not just the condition."
+        },
+        {
+          "pattern": "Guard the assert with `if __debug__:`.",
+          "because": "That makes the debug-only nature explicit but does not make the check survive `-O`; it is still removed in optimized builds."
+        }
+      ],
+      "examples": {
+        "bad": "def process(value):\n    assert value > 0\n    return value",
+        "good": "def process(value):\n    if value <= 0:\n        raise ValueError(\"value must be positive\")\n    return value"
+      }
+    },
+    {
+      "id": "no-star-import",
+      "category": "style",
+      "pack": "core-py",
+      "scope": "file",
+      "severity": "warning",
+      "evidence": "syntax",
+      "summary": "Do not use `from module import *`.",
+      "why": "A wildcard import brings an unknown set of names into the current namespace. It can shadow names defined earlier, makes the origin of any name impossible to see without runtime inspection, and breaks the static checks a file-scope analyzer can perform because the set of imported names depends on the source module's `__all__` list.",
+      "allowedFixes": [
+        "Import the module and qualify names: `import module` then `module.name`.",
+        "Import only the specific names the file uses: `from module import name1, name2`.",
+        "If many names are needed, restructure the code to reduce the surface area between modules."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Define `__all__` in the source module to control what `import *` exports.",
+          "because": "It changes which names are exported but does not remove the shadowing problem or the unpredictable namespace in the importing file."
+        },
+        {
+          "pattern": "Rename individual names with `as` inside the wildcard import.",
+          "because": "Wildcard imports do not support per-name aliases; `from module import name as alias` is a different construct and is allowed."
+        }
+      ],
+      "examples": {
+        "bad": "from os import *",
+        "good": "import os\nfrom os import path"
+      }
+    }
+  ]
+}

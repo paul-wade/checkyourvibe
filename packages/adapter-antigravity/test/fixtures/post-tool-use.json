@@ -1,0 +1,13 @@
+{
+  "event": "PostToolUse",
+  "toolCall": {
+    "name": "edit_file",
+    "args": {
+      "file_path": "/home/user/checkout/src/components/Widget.tsx",
+      "old_string": "let value: any = 1;",
+      "new_string": "let value: unknown = 1;"
+    }
+  },
+  "workspacePaths": ["/home/user/checkout"],
+  "transcriptPath": "/home/user/.antigravity/transcripts/8f1c9e0a.json"
+}

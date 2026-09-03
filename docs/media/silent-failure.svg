@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="559" height="212" viewBox="0 0 559 212" role="img" aria-label="how much of your config actually ran">
+  <rect width="559" height="212" rx="8" fill="#0B1017"/>
+  <rect width="559" height="34" rx="8" fill="#111826"/>
+  <rect y="26" width="559" height="8" fill="#111826"/>
+  <line x1="0" y1="34" x2="559" y2="34" stroke="#1E2836" stroke-width="1"/>
+  <circle cx="20" cy="20" r="5.5" fill="#FF5F57" opacity="0.85"/><circle cx="37" cy="20" r="5.5" fill="#FEBC2E" opacity="0.85"/><circle cx="54" cy="20" r="5.5" fill="#28C840" opacity="0.85"/>
+  <text x="279.5" y="24" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="11" fill="#6E7B8C" letter-spacing="1.4">how much of your config actually ran</text>
+  <g font-family="ui-monospace,SFMono-Regular,'Cascadia Mono',Consolas,monospace" font-size="13" xml:space="preserve">
+    <text y="44"><tspan x="18.0" fill="#6E7B8C">$ </tspan><tspan x="33.6" fill="#E8E3D9" font-weight="600">cyv check --all      # "strict-boundries" — one character wrong</tspan></text>
+    <text y="82"><tspan x="18.0" fill="#6E7B8C">  9 of 14 rules enabled</tspan></text>
+    <text y="101"><tspan x="18.0" fill="#6E7B8C">  Unknown pack "strict-boundries" — no loaded analyzer provides it.</tspan></text>
+    <text y="139"><tspan x="18.0" fill="#E8E3D9" font-weight="600"># it used to print "0 errors" here, and exit 0.</tspan></text>
+    <text y="158"><tspan x="18.0" fill="#6E7B8C">$ </tspan><tspan x="33.6" fill="#E8E3D9" font-weight="600">echo $?</tspan></text>
+    <text y="177"><tspan x="18.0" fill="#E8E3D9" font-weight="600">2</tspan></text>
+  </g>
+</svg>

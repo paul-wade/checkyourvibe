@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://checkyourvibe.dev/schema/analyze-response.json",
+  "title": "AnalyzeResponse",
+  "description": "Response returned by an analyzer after processing a request.",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "DegradedResolution": {
+      "title": "DegradedResolution",
+      "description": "A group of files whose type resolution was degraded and the reason.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "reason"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Absolute paths of files whose type resolution was degraded."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why the type resolution was degraded, in terms a human can act on."
+        }
+      }
+    }
+  },
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "description": "Protocol version. Always 1 for this schema."
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "$ref": "https://checkyourvibe.dev/schema/violation.json"
+      },
+      "description": "Rule violations found in the analyzed files."
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "$ref": "https://checkyourvibe.dev/schema/violation.json#/$defs/SkippedFile"
+      },
+      "description": "Files the analyzer could not process."
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "https://checkyourvibe.dev/schema/violation.json#/$defs/Diagnostic"
+      },
+      "description": "Runtime diagnostics emitted by the analyzer."
+    },
+    "degraded": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/DegradedResolution" },
+      "description": "Files whose type resolution was degraded. The core withholds semantic findings for these files. Optional for backward compatibility."
+    }
+  },
+  "required": ["protocol", "violations", "skipped", "diagnostics"]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@checkyourvibe/analyzer-typescript",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript analyzer for checkyourvibe, including the core-ts rule pack.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/checkyourvibe/checkyourvibe.git"
+  },
+  "author": "checkyourvibe",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "analyzer.manifest.json"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "ts-morph": "^25.0.0",
+    "@checkyourvibe/core": "workspace:*"
+  },
+  "bin": {
+    "cyv-analyzer-typescript": "./dist/bin/analyze.js"
+  }
+}

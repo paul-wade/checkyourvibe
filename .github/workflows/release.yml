@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version $VERSION"
+
+      - name: Build TypeScript
+        run: pnpm exec tsc -b
+
+      - name: Build C# analyzer
+        working-directory: packages/analyzer-csharp/src
+        run: dotnet build -c Release
+
+      - name: Build Rust analyzer
+        working-directory: packages/analyzer-rust
+        run: cargo build --release
+
+      - name: Run tests
+        run: pnpm exec vitest run
+
+      # Conformance of every analyzer manifest, not only the ones this repo has
+      # in its default config. A published artifact with a broken analyzer path
+      # fails the first user who installs it.
+      - name: Analyzer conformance
+        run: |
+          for manifest in packages/analyzer-*/analyzer.manifest.json; do
+            echo "--- $manifest"
+            node packages/core/dist/cli/index.js verify-analyzer "$manifest"
+          done
+
+      - name: Self-check
+        run: node packages/core/dist/cli/index.js check --all --strict
+
+      # The deny list names the employer, people and products this rebuild is
+      # scrubbing, so it cannot live in the repository. CI receives it as a
+      # secret. If the secret is absent the check exits 2 and fails the build.
+      # A clean-room check that silently verifies nothing is worse than no check,
+      # because it reports success it never earned.
+      - name: Write provenance deny list
+        env:
+          CYV_PROVENANCE_DENY_CONTENT: ${{ secrets.CYV_PROVENANCE_DENY }}
+        run: |
+          if [ -n "$CYV_PROVENANCE_DENY_CONTENT" ]; then
+            printf '%s\n' "$CYV_PROVENANCE_DENY_CONTENT" > .cyv-provenance-deny
+          fi
+
+      - name: Provenance check (tree)
+        run: node tools/provenance-check.mjs
+
+      # The published artifact contains the built output. A check that only
+      # scans the source tree would miss anything the packer resolved
+      # differently or anything that made it into compiled code. Set the version
+      # first so the packed package.json matches exactly what will ship.
+      - name: Set version
+        run: node tools/release/set-version.mjs "${{ steps.version.outputs.version }}" --force
+
+      - name: Verify pack
+        run: node tools/release/verify-pack.mjs
+
+      - name: Provenance check (packed tarballs)
+        run: node tools/release/provenance-pack.mjs
+
+      # An accidental publish cannot be undone. The release decision to remove
+      # `private: true` has not been made yet, so this step is expected to be a
+      # no-op until that happens. If it ever does, it will detect the public
+      # state and publish in dependency order.
+      - name: Publish
+        run: node tools/release/publish.mjs

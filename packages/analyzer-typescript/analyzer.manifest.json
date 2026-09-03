@@ -1,0 +1,688 @@
+{
+  "protocol": 1,
+  "id": "typescript",
+  "match": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "**/*.d.ts",
+    "**/node_modules/**",
+    "**/dist/**"
+  ],
+  "exec": {
+    "type": "node",
+    "module": "./dist/index.js"
+  },
+  "rules": [
+    {
+      "id": "no-any",
+      "category": "type-safety",
+      "pack": "core-ts",
+      "evidence": "semantic",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not use the `any` type, whether it is written explicitly or inferred.",
+      "why": "The `any` type opts a value out of TypeScript's type checking. Every value that flows through it becomes a black box: the compiler cannot check property access, function calls, or assignments, and errors that would have been caught at compile time surface as runtime failures or misleading completions. Inferred `any` is just as dangerous as the written keyword, because it appears when the type checker cannot determine a type and silently disables checking without being visible in the source.",
+      "allowedFixes": [
+        "Return a concrete type from the producing function and use that type at every call site.",
+        "For a function that passes a value through unchanged, use a generic parameter (`<T>`) so the input type is preserved.",
+        "Validate data that enters the program from an external source at the boundary, then use the validated result's type instead of `any`.",
+        "Model a value that may be one of several shapes as a discriminated union rather than collapsing it to `any`.",
+        "For a function that only performs side effects, declare its return type as `void`."
+      ],
+      "notFixes": [
+        {
+          "pattern": "widen the type to `unknown`",
+          "because": "It hides the `any` at the declaration but forces every consumer to narrow or cast before use, so the untyped surface simply moves downstream."
+        },
+        {
+          "pattern": "cast the value with `as`",
+          "rule": "no-as-cast",
+          "because": "It asserts a type without proof; the runtime value can still be anything, and the compiler stops checking it."
+        },
+        {
+          "pattern": "replace the type with `object` or `{}` to keep the code compiling",
+          "rule": "no-useless-types",
+          "because": "Those types look like constraints but accept almost every value, so the underlying problem is still there and no-useless-types will report them."
+        },
+        {
+          "pattern": "suppress the error with `// @ts-ignore` or `// @ts-expect-error`",
+          "rule": "no-ts-comment",
+          "because": "It silences the type checker rather than replacing the missing type, so later code assumes guarantees that do not exist."
+        }
+      ],
+      "examples": {
+        "bad": "function process(input) {\n  return input;\n}\n\nconst value: any = 1;",
+        "good": "function identity<T>(input: T): T {\n  return input;\n}\n\ntype Shape =\n  | { kind: 'circle'; radius: number }\n  | { kind: 'square'; side: number };\n\nfunction describe(shape: Shape): string {\n  switch (shape.kind) {\n    case 'circle':\n      return `circle with radius ${shape.radius}`;\n    case 'square':\n      return `square with side ${shape.side}`;\n  }\n}\n\nfunction emit(event: string, sink: (message: string) => void): void {\n  sink(event);\n}"
+      }
+    },
+    {
+      "id": "no-as-cast",
+      "category": "type-safety",
+      "pack": "core-ts",
+      "evidence": "syntax",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not force a value into a type with `as` or angle-bracket assertions.",
+      "why": "Type assertions tell the compiler to trust a type that the value may not actually have. They move a runtime mismatch forward in time, where it becomes harder to diagnose, and they defeat the guarantees that make refactoring safe.",
+      "allowedFixes": [
+        "Narrow the value with a type guard, `typeof`, `instanceof`, or an `in` check before using it.",
+        "Validate unknown input at the boundary with a schema validator and use the validated result.",
+        "Fix the upstream declaration so the value has the correct type at the source.",
+        "Use a generic so the caller supplies the type and the implementation stays honest."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Route the value through `unknown` to reach the target type (`x as unknown as T`).",
+          "because": "It is the same assertion with an extra indirection; this rule reports the double-cast pattern more severely, not less."
+        },
+        {
+          "pattern": "Assert the value is non-null with `!` instead of proving it.",
+          "rule": "no-non-null-assertion",
+          "because": "It removes the same nullability check the cast was trying to avoid, and is reported by no-non-null-assertion."
+        },
+        {
+          "pattern": "Move the cast to the result of `JSON.parse` or `response.json()` and annotate the parsed value.",
+          "rule": "no-json-parse-cast",
+          "because": "The data still reaches the target type without a runtime check; the cast is simply hidden behind a parser call."
+        },
+        {
+          "pattern": "Suppress the resulting error with a compiler-directive comment such as `@ts-ignore` or `@ts-expect-error`.",
+          "rule": "no-ts-comment",
+          "because": "A directive comment hides the type error without changing the actual value, so the mismatch remains at runtime."
+        },
+        {
+          "pattern": "Annotate the value as `any` so no cast is needed.",
+          "rule": "no-any",
+          "because": "Using `any` removes type information altogether, which is a broader and more damaging violation."
+        },
+        {
+          "pattern": "Cast a returned promise to `void` so the call can be used as an expression statement.",
+          "rule": "no-floating-promise",
+          "because": "A cast does not await or handle the promise; it only hides the unhandled promise from the type checker, and `void` should be the explicit, documented discard instead."
+        }
+      ],
+      "examples": {
+        "bad": "const user = loadUser() as User;\nconst total = <number>rawTotal;",
+        "good": "function load<T>(id: string): T {\n  throw new Error('unimplemented');\n}\nconst user = validateUser(loadUser());\nif (typeof rawTotal === 'number') {\n  const total = rawTotal;\n}"
+      }
+    },
+    {
+      "id": "no-non-null-assertion",
+      "category": "type-safety",
+      "pack": "core-ts",
+      "evidence": "syntax",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not use the non-null assertion operator `!` or definite assignment assertions `!` to silence the type checker.",
+      "why": "The `!` operator and the definite assignment assertion both tell the compiler to trust that a value will be present. They remove a safety check without adding any verification. If the assumption is wrong, the program fails at runtime and the type system offers no guidance toward the fix. Asserting the same thing on a field declaration instead of a use site does not make the claim safer; it only moves the unverified assumption earlier.",
+      "allowedFixes": [
+        "Narrow the value with an explicit check, such as `if (value !== undefined)`, before using it.",
+        "Initialize the field in a constructor so it is genuinely assigned before use.",
+        "Give the field a default value that is valid for its type.",
+        "Model genuine absence as an optional property and handle the missing case explicitly.",
+        "Use a nullish-coalescing fallback (`?? defaultValue`) where a default is the right behaviour."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Cast the value to the desired type instead",
+          "because": "A cast also bypasses the type checker and is just another way to assert a claim without evidence.",
+          "rule": "no-as-cast"
+        },
+        {
+          "pattern": "Annotate the value as `any` so the compiler stops asking",
+          "because": "Widening to `any` removes type information entirely and hides every future mistake.",
+          "rule": "no-any"
+        },
+        {
+          "pattern": "Suppress the error with a compiler-directive comment",
+          "because": "A directive comment hides the problem from the type checker without removing the runtime risk.",
+          "rule": "no-ts-comment"
+        },
+        {
+          "pattern": "Move the `!` from the use site to the field declaration",
+          "because": "It is the same unchecked claim relocated; this rule reports both use-site and declaration-site assertions."
+        }
+      ],
+      "examples": {
+        "bad": "function f(value: string | undefined) {\n  return value!;\n}\n\nclass C {\n  field!: string;\n}",
+        "good": "function f(value: string | undefined) {\n  if (value !== undefined) {\n    return value;\n  }\n  return '';\n}\n\nclass C {\n  field: string = '';\n}"
+      }
+    },
+    {
+      "id": "no-ts-comment",
+      "category": "type-safety",
+      "pack": "core-ts",
+      "evidence": "syntax",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not silence type errors with `@ts-ignore` or `@ts-expect-error` compiler directive comments.",
+      "why": "Compiler directive comments stop the type checker from reporting a specific line. They leave the actual mismatch in the source, so the next reader and every later refactor inherit a false assumption. `@ts-expect-error` is safer than `@ts-ignore` because it fails when the error is removed, but it still marks an unresolved type error as acceptable.",
+      "allowedFixes": [
+        "Fix the underlying type error at its source, such as a wrong declaration or a missing property.",
+        "Narrow the value with a type guard, `typeof`, `instanceof`, or an `in` check before it reaches the silenced line.",
+        "If a dependency type declaration is inaccurate, correct it locally with a module augmentation.",
+        "When the checker cannot see a value because of control flow, restructure the code or add a runtime check so the type becomes derivable."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Replace `@ts-ignore` with `@ts-expect-error` to avoid the stricter severity",
+          "because": "This rule reports both directives. The underlying type error is still hidden from the checker and still present in the code."
+        },
+        {
+          "pattern": "Cast the value so the directive is no longer needed",
+          "rule": "no-as-cast",
+          "because": "A type assertion overrides the actual type without proof; the runtime value can still mismatch, so the suppressed error reappears as an unchecked cast."
+        },
+        {
+          "pattern": "Annotate the value as `any` so the error disappears",
+          "rule": "no-any",
+          "because": "`any` removes type information for that value and everything it flows into, which is a broader and more damaging violation than a single suppressed error."
+        }
+      ],
+      "examples": {
+        "bad": "// @ts-ignore\nconst value: number = 'not a number';\n\n/** @ts-expect-error */\nconst other: string = 123;",
+        "good": "function parse(input: unknown): string {\n  if (typeof input === 'string') {\n    return input;\n  }\n  throw new Error('expected a string');\n}"
+      }
+    },
+    {
+      "id": "no-useless-types",
+      "category": "type-safety",
+      "pack": "core-ts",
+      "evidence": "semantic",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not use the `object`, `Function`, or empty-object `{}` types because they accept far more than they appear to.",
+      "why": "These types look like constraints but do not describe the actual value. `object` accepts any non-primitive, `Function` accepts any callable without describing its arguments or result, and `{}` accepts every value except `null` and `undefined`. Code that uses them still compiles when passed arrays, functions, numbers, or strings, so the type system cannot catch mistakes at the boundary. Later readers assume the type is narrower than it is, and every property access or call must be checked or cast by hand, defeating the purpose of static typing.",
+      "allowedFixes": [
+        "Declare an interface that lists the members the value is actually expected to have.",
+        "For a callback, write the full function signature with typed parameters and a typed return value.",
+        "When a value is only passed through unchanged, use a generic type parameter so the caller's type is preserved.",
+        "When nothing is known about a value, use `unknown` and narrow it with a type guard before use."
+      ],
+      "notFixes": [
+        {
+          "pattern": "replace the type with `any`",
+          "rule": "no-any",
+          "because": "It removes type information entirely and lets any value through without checking, which is a broader and more damaging violation than the original."
+        },
+        {
+          "pattern": "cast the value with `as` or an angle-bracket assertion at the use site to recover the lost shape",
+          "rule": "no-as-cast",
+          "because": "Casting asserts a type the value may not have; it does not add the missing type information, it only silences the compiler at that point."
+        },
+        {
+          "pattern": "swap `{}` for `object` or `object` for `{}`",
+          "because": "Both types are reported by this rule for the same reason; neither one describes the value's actual structure, so the change only moves the violation to a different line."
+        }
+      ],
+      "examples": {
+        "bad": "function getValue(): object {\n  return {};\n}\n\nlet handler: Function;\ntype Empty = {};\n\nfunction collect(items: Array<object>) {\n  return items;\n}\n\ninterface Container {\n  value: {};\n  runner: Function;\n}",
+        "good": "interface User {\n  name: string;\n}\n\nlet handler: (event: string) => number;\n\nfunction identity<T>(value: T): T {\n  return value;\n}\n\nlet value: unknown;\nif (typeof value === 'string') {\n  value.toUpperCase();\n}"
+      }
+    },
+    {
+      "id": "no-console",
+      "category": "style",
+      "pack": "core-ts",
+      "evidence": "semantic",
+      "scope": "file",
+      "severity": "warning",
+      "summary": "Do not call methods on the global console object.",
+      "why": "The global console is a debugging convenience that writes directly to the user's terminal. It mixes formatting, side effects, and severity into a single untyped sink, so committed console calls cannot be filtered, redirected, or tested consistently. A configurable rule lets a project permit the few members a command-line tool genuinely needs while keeping the rest visible.",
+      "allowedFixes": [
+        "Route the output through the application's own logging abstraction so it can be filtered, redirected, and tested.",
+        "Remove debugging output before committing the change.",
+        "Where a command-line tool legitimately must write to the user's terminal, add the member to `allowedMethods` and keep the rest reported."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Assign the console object or one of its methods to a differently-named local and call that instead",
+          "because": "It is the same global console call with an extra indirection; the rule resolves simple aliases and the behaviour is unchanged."
+        },
+        {
+          "pattern": "Comment the call out instead of removing or replacing it",
+          "because": "A commented call is not executable but it is still committed noise, and the next reader has no signal whether it was intentional or abandoned."
+        }
+      ],
+      "examples": {
+        "bad": "console.log('debug');\nconsole.error(new Error('failed'));\n\nconst { log } = console;\nlog('destructured');",
+        "good": "function emit(level: 'info' | 'error', message: string): void {\n  // routed through the application's logging abstraction\n}\n\nemit('error', 'failed');\n\n// For a command-line tool that truly needs the terminal,\n// configure allowedMethods: ['warn', 'error']\nconsole.warn('caution');"
+      },
+      "optionsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "allowedMethods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "console members that are permitted, e.g. warn and error in a CLI",
+            "default": []
+          }
+        }
+      }
+    },
+    {
+      "id": "no-swallowed-catch",
+      "category": "reliability",
+      "pack": "core-ts",
+      "evidence": "semantic",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not use a catch block or promise rejection handler that neither handles nor rethrows the error.",
+      "why": "A catch clause or promise rejection handler that is empty or does nothing observable with the error swallows the failure. The program continues as if nothing failed, so the failure is invisible to logs, metrics, and the caller. This makes crashes harder to diagnose and allows corrupted state to propagate. Promise rejection handlers need the type checker to confirm the receiver is a real Promise; matching the method name alone would flag every object with a catch or then method.",
+      "allowedFixes": [
+        "Rethrow the exception, optionally wrapped with additional context.",
+        "Handle the error by logging it through the application's own logging abstraction and then returning a safe fallback or exiting.",
+        "Replace the catch with a typed error boundary or recovery function that the caller can observe.",
+        "If the exception is truly unrecoverable, move the operation to a context where failure is reported, not swallowed.",
+        "For a promise rejection handler, log or rethrow the rejected value, or return a meaningful fallback the caller can observe."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Annotate the catch variable as `any` to avoid having to narrow it.",
+          "rule": "no-any",
+          "because": "It removes type information and lets the error pass through untouched; the catch block is still swallowing the exception."
+        },
+        {
+          "pattern": "Cast the caught error to a concrete type and leave the block otherwise empty.",
+          "rule": "no-as-cast",
+          "because": "A cast asserts a type without proof and does not change the fact that the exception is being ignored."
+        },
+        {
+          "pattern": "Add a comment inside the catch block explaining why the exception is ignored.",
+          "because": "A comment does not handle or rethrow the exception; the rule still reports an empty or comment-only catch block."
+        },
+        {
+          "pattern": "Assign the error to a local variable and leave it unused.",
+          "because": "The block still does not handle or rethrow the exception; it only silences an unused-variable warning."
+        },
+        {
+          "pattern": "Replace the empty catch with a catch that immediately rethrows the same error",
+          "rule": "no-broad-catch-rethrow",
+          "because": "Rethrowing the caught error unchanged adds a stack frame without adding context or handling; the exception was already going to propagate."
+        }
+      ],
+      "examples": {
+        "bad": "function load() {\n  try {\n    return fetchData();\n  } catch {}\n}\n\nfunction save() {\n  try {\n    writeData();\n  } catch (e) {\n    /* ignore */\n  }\n}\n\ndeclare function getUser(): Promise<string>;\ndeclare function onFulfilled(value: string): void;\n\nfunction silence() {\n  getUser().catch(() => {});\n  getUser().catch(function() {});\n  getUser().then(onFulfilled, () => {});\n}",
+        "good": "function load() {\n  try {\n    return fetchData();\n  } catch (e) {\n    throw new Error('failed to load data', { cause: e });\n  }\n}\n\nfunction save() {\n  try {\n    writeData();\n  } catch (e) {\n    logError('save failed', e);\n    return { ok: false };\n  }\n}\n\ndeclare function getUser(): Promise<string>;\ndeclare function onFulfilled(value: string): void;\ndeclare function reportError(err: unknown): void;\n\nfunction handle() {\n  getUser().catch((err) => {\n    reportError(err);\n  });\n  getUser().then(onFulfilled, (err) => {\n    reportError(err);\n  });\n}"
+      }
+    },
+    {
+      "id": "no-floating-promise",
+      "category": "reliability",
+      "pack": "core-ts",
+      "evidence": "semantic",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not leave a promise unhandled; await it, return it, assign it, or explicitly handle it.",
+      "why": "A call that returns a Promise represents work that may fail asynchronously. If the result is not awaited, returned, stored, or explicitly handled, a rejection becomes an unhandled rejection at a later, unrelated point in the program. The type checker is the only way to know whether a call returns a Promise, so this rule is semantic.",
+      "allowedFixes": [
+        "Await the promise with `await`.",
+        "Return the promise so the caller can await it.",
+        "Assign the promise to a variable and attach a rejection handler.",
+        "Attach a rejection handler with `.catch(...)` or `.then(onFulfilled, onRejected)`.",
+        "Pass the promise to a consumer such as `Promise.all` and await the combined result.",
+        "If the fire-and-forget is intentional, explicitly discard the result with the `void` operator and a comment explaining why."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Cast the promise to `void` or a non-promise type with `as`",
+          "rule": "no-as-cast",
+          "because": "A cast does not await or handle the promise; it only hides the return type from the type checker, and the rejection is still unhandled."
+        },
+        {
+          "pattern": "Annotate the surrounding function or variable as `any` so the Promise type is ignored",
+          "rule": "no-any",
+          "because": "`any` removes type information and hides the promise from this rule, but the unhandled rejection still happens at runtime."
+        },
+        {
+          "pattern": "Suppress the finding with a compiler-directive comment",
+          "rule": "no-ts-comment",
+          "because": "A directive comment hides the unhandled promise without adding an `await`, a handler, or an explicit discard."
+        },
+        {
+          "pattern": "Wrap the call in a try/catch with an empty catch block",
+          "rule": "no-swallowed-catch",
+          "because": "A try/catch around an async call cannot catch a promise rejection that happens later; an empty catch swallows synchronous errors and leaves the promise unhandled."
+        },
+        {
+          "pattern": "Rethrow the caught error unchanged from a catch block",
+          "rule": "no-broad-catch-rethrow",
+          "because": "Rethrowing the same error from a catch adds a stack frame without handling the unhandled promise; the promise is still floating."
+        },
+        {
+          "pattern": "Use `.then(...)` with only an onFulfilled handler",
+          "because": "A single-argument `.then` does not handle rejections; the promise it returns is still unhandled if the original promise rejects."
+        },
+        {
+          "pattern": "Attach an empty `.catch(() => {})` handler to silence the rejection",
+          "rule": "no-swallowed-catch",
+          "because": "The rejection is caught and discarded, so the failure is now invisible instead of loud, which is worse than the floating promise was."
+        },
+        {
+          "pattern": "Pass the promise to `Promise.all` and ignore the returned promise",
+          "because": "`Promise.all([...])` returns a new promise; if that promise is not awaited or handled, the combined result is still floating."
+        },
+        {
+          "pattern": "Use the `void` operator to discard the promise but omit an explanatory comment",
+          "because": "A bare `void` operator hides intent from the next reader and offers no evidence that the fire-and-forget was considered; the rule allows `void` only when the expression statement has a trailing comment explaining why."
+        }
+      ],
+      "examples": {
+        "bad": "declare function fetchData(): Promise<void>;\ndeclare function getUser(): Promise<string>;\n\nfetchData();\ngetUser().then(console.log);\ngetUser().finally(() => {});\nPromise.all([fetchData()]);\nvoid fetchData();",
+        "good": "declare function fetchData(): Promise<void>;\ndeclare function getUser(): Promise<string>;\ndeclare function reportError(err: unknown): void;\n\nasync function run() {\n  await fetchData();\n  await getUser();\n}\n\nfunction runAll() {\n  return Promise.all([fetchData(), getUser()]);\n}\n\ngetUser().catch((err) => {\n  reportError(err);\n});\n\nvoid fetchData(); // intentionally fire-and-forget, explained here"
+      }
+    },
+    {
+      "id": "no-broad-catch-rethrow",
+      "category": "reliability",
+      "pack": "core-ts",
+      "evidence": "syntax",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not catch an exception only to throw the same value unchanged.",
+      "why": "A catch block that immediately rethrows the caught value adds a stack frame and an extra control-flow hop without adding context or filtering. The original exception already propagates; the catch is either a no-op or a sign that the author intended to add handling but forgot.",
+      "allowedFixes": [
+        "Remove the catch clause and let the exception propagate directly.",
+        "If cleanup is needed, keep a `finally` block and remove the catch/rethrow.",
+        "Rethrow with added context using `new Error(\"...\", { cause: e })`.",
+        "Catch only specific, recoverable errors and handle them instead of rethrowing."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Add a comment inside the catch block explaining why the exception is rethrown",
+          "because": "A comment does not remove the extra catch frame or add information; the exception still propagates through an unnecessary catch."
+        },
+        {
+          "pattern": "Annotate the catch variable as `any`",
+          "rule": "no-any",
+          "because": "It removes type information from the caught error without changing the fact that the catch block does nothing but rethrow."
+        },
+        {
+          "pattern": "Cast the caught error with `as` before rethrowing",
+          "rule": "no-as-cast",
+          "because": "A cast asserts a type without proof; the exception is still rethrown unchanged and the catch frame still adds nothing."
+        },
+        {
+          "pattern": "Remove the `throw` and leave the catch block empty",
+          "rule": "no-swallowed-catch",
+          "because": "An empty catch swallows the exception entirely, which is a different and usually worse failure than a useless rethrow."
+        },
+        {
+          "pattern": "Suppress the finding with a compiler-directive comment",
+          "rule": "no-ts-comment",
+          "because": "A directive comment hides the useless catch without removing it, so the extra frame and obscured stack remain."
+        }
+      ],
+      "examples": {
+        "bad": "function load() {\n  try {\n    return fetchData();\n  } catch (e) {\n    throw e;\n  }\n}",
+        "good": "function load() {\n  try {\n    return fetchData();\n  } catch (e) {\n    throw new Error('failed to load data', { cause: e });\n  }\n}\n\nfunction load() {\n  try {\n    return fetchData();\n  } finally {\n    // cleanup runs whether or not the call throws\n  }\n}"
+      }
+    },
+    {
+      "id": "no-json-parse-cast",
+      "category": "type-safety",
+      "pack": "strict-boundaries",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not treat the result of parsing untrusted text as a specific type without validating it first.",
+      "why": "A parser converts raw text into a runtime value, but the text may not contain the fields, types, or structure the code expects. Annotating, casting, or returning that value as a concrete type tells the compiler to trust a shape that has never been checked. The mismatch then surfaces as a runtime failure or a silently wrong value instead of a compile-time error.",
+      "allowedFixes": [
+        "Validate at the boundary with a runtime schema validator and use the validated result's inferred type.",
+        "Hand-write a type-guard predicate that actually inspects the fields before using the value.",
+        "Keep the parsed value as `unknown` and narrow it at each use site with `typeof`, `instanceof`, or `in` checks."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Route the parse result through `unknown` first, then cast to the target type.",
+          "because": "The value still reaches the target type without a runtime check; the indirection does not validate the shape."
+        },
+        {
+          "pattern": "Cast the parsed value with `as` or angle brackets.",
+          "rule": "no-as-cast",
+          "because": "A cast asserts a type without proof, so the untrusted value can still have the wrong shape at runtime."
+        },
+        {
+          "pattern": "Assert that parsed fields or the whole object are non-null with `!`.",
+          "rule": "no-non-null-assertion",
+          "because": "After parsing, the data may be missing fields; `!` asserts they exist without checking, which is the same unchecked claim moved to a different operator."
+        },
+        {
+          "pattern": "Type the result as `any` so no assertion is needed.",
+          "rule": "no-any",
+          "because": "Widening to `any` removes the type claim but also removes type checking entirely, which is a broader violation."
+        },
+        {
+          "pattern": "Suppress the resulting error with a compiler-directive comment.",
+          "rule": "no-ts-comment",
+          "because": "A directive comment hides the type error without validating the value, so the runtime risk remains."
+        }
+      ],
+      "examples": {
+        "bad": "const config1 = JSON.parse(raw) as Config;\nconst config2 = <Config>JSON.parse(raw);\nconst config3: Config = JSON.parse(raw);\nfunction getConfig(): Config { return JSON.parse(raw); }\nconst config4 = (await res.json()) as Config;",
+        "good": "const raw = JSON.parse(text);\n\nfunction isConfig(value: unknown): value is Config {\n  return typeof value === 'object' && value !== null && 'name' in value;\n}\n\nconst parsed = JSON.parse(text);\nif (isConfig(parsed)) {\n  console.log(parsed.name);\n}\n\nconst untyped: unknown = JSON.parse(text);\nif (typeof untyped === 'object' && untyped !== null && 'name' in untyped) {\n  const record = untyped as Record<string, unknown>;\n  if (typeof record.name === 'string') {\n    console.log(record.name);\n  }\n}"
+      }
+    },
+    {
+      "id": "no-unsafe-index-access",
+      "category": "type-safety",
+      "pack": "strict-boundaries",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "semantic",
+      "summary": "Do not read an index or property from a value typed `unknown`, or from an array or record without handling the possible `undefined` result.",
+      "why": "With `noUncheckedIndexedAccess`, every array or record read returns `T | undefined`. Using that result as if it is `T` is an unchecked claim: a missing key or out-of-bounds index becomes a runtime error. The same is true for `unknown`, where the compiler has no idea what properties exist. A type assertion or non-null assertion only hides the uncertainty; it does not prove the value is present.",
+      "allowedFixes": [
+        "Narrow an `unknown` value with `typeof`, `instanceof`, or a user-defined type guard before accessing it.",
+        "Guard an array or record access with an `if (value !== undefined)` check, optional chaining (`?.`), or nullish coalescing (`??`).",
+        "Use a typed loop such as `for...of` or `Object.entries` that does not depend on unchecked index access.",
+        "If the index is definitely in range, prove it with a runtime length or membership check before reading."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Silence the possible-undefined error with a non-null assertion (`!`).",
+          "rule": "no-non-null-assertion",
+          "because": "It tells the compiler to trust that the value is defined, but a missing element or an out-of-bounds index can still produce `undefined` at runtime."
+        },
+        {
+          "pattern": "Cast the result to the non-nullable type with `as` or angle brackets.",
+          "rule": "no-as-cast",
+          "because": "A cast asserts the type without proof; an out-of-bounds or missing key can still produce `undefined`."
+        },
+        {
+          "pattern": "Widen the value or the array to `any` so the index access is allowed.",
+          "rule": "no-any",
+          "because": "It removes all type information and simply moves the crash to a different line, because a missing element is still `undefined` at runtime."
+        },
+        {
+          "pattern": "Rely on the element being present because it was set earlier.",
+          "because": "A prior write does not guarantee the element still exists; another caller may have changed the array or record."
+        },
+        {
+          "pattern": "Write a default value to the index without first checking that the slot exists",
+          "rule": "no-non-null-index-write",
+          "because": "Writing to an index without a guard does not prove the slot exists; it may create a hole in an array or silently add a key to a record."
+        }
+      ],
+      "examples": {
+        "bad": "declare const value: unknown;\ndeclare const arr: string[];\ndeclare const record: Record<string, string>;\ndeclare const i: number;\ndeclare const key: string;\n\nfunction getElement(): string {\n  return arr[i];\n}\n\nconst name: string = arr[i];\nrecord[key].trim();\nvalue['name'];\nvalue.name;\narr[i].toUpperCase();\n(arr[i] as string).trim();",
+        "good": "declare const value: unknown;\ndeclare const arr: string[];\ndeclare const record: Record<string, string>;\ndeclare const i: number;\ndeclare const key: string;\n\n// optional chaining handles undefined\narr[i]?.toUpperCase();\nrecord[key]?.trim();\n\n// nullish coalescing provides a fallback\narr[i] ?? 'missing';\n\n// explicit guard narrows both the index and the unknown value\nif (arr[i] !== undefined) {\n  arr[i].toUpperCase();\n}\n\nif (typeof value === 'string') {\n  value.length;\n}\n\n// preserve the undefined with the type\nconst found: string | undefined = arr[i];\n\nfunction find(): string | undefined {\n  return record[key];\n}"
+      }
+    },
+    {
+      "id": "no-unsafe-array-narrowing",
+      "category": "type-safety",
+      "pack": "strict-boundaries",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "semantic",
+      "summary": "Do not use `Array.isArray` to narrow an `unknown` or `any` value to `any[]`.",
+      "why": "The built-in `Array.isArray` type predicate narrows `unknown` and `any` to `any[]`. The resulting binding is an `any`, and every element read from it is unchecked from then on. The `any` is invisible: no `any` keyword was written, the code looks like careful validation, and it type-checks. A hand-written guard that narrows to `unknown[]` or to an array with validated element types keeps the checks explicit.",
+      "allowedFixes": [
+        "Replace the check with a hand-written type guard that narrows to `unknown[]` (for example, `function isUnknownArray(value: unknown): value is unknown[] { return Array.isArray(value); }`).",
+        "Use a hand-written guard that validates each element type before narrowing (for example, `value is string[]` backed by `value.every((item: unknown) => typeof item === 'string')`)."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Cast the narrowed value to `unknown[]` with `as` or angle brackets to recover a safe element type.",
+          "rule": "no-as-cast",
+          "because": "A cast asserts the type without proof; at runtime the value is still `any[]`, and the compiler stops checking element accesses."
+        },
+        {
+          "pattern": "Use the non-null assertion operator `!` to treat the value as an array or an element as present.",
+          "rule": "no-non-null-assertion",
+          "because": "`!` removes a check without proving the value is an array or that an element has the expected type."
+        },
+        {
+          "pattern": "Widen the argument to `any` so the type guard succeeds without a complaint.",
+          "rule": "no-any",
+          "because": "`any` already removes type checking; making the argument `any` only hides the `Array.isArray` call in a wider untyped surface."
+        },
+        {
+          "pattern": "Suppress the error with `// @ts-ignore` or `// @ts-expect-error`.",
+          "rule": "no-ts-comment",
+          "because": "A directive comment hides the narrowing to `any[]` without replacing it with a safe guard."
+        }
+      ],
+      "examples": {
+        "bad": "declare const value: unknown;\n\nif (Array.isArray(value)) {\n  value;\n}\n\nif (!Array.isArray(value)) {\n  value;\n}\n\nconst result = Array.isArray(value) ? value : null;\n\nfunction isAnyArray(value: unknown): value is any[] {\n  return Array.isArray(value);\n}",
+        "good": "declare const maybeArray: string[] | string;\n\nif (Array.isArray(maybeArray)) {\n  maybeArray;\n}\n\nconst isArr = Array.isArray(maybeArray);\n\nfunction isUnknownArray(value: unknown): value is unknown[] {\n  return Array.isArray(value);\n}\n\nfunction isStringArray(value: unknown): value is string[] {\n  return Array.isArray(value) && value.every((item: unknown) => typeof item === 'string');\n}"
+      }
+    },
+    {
+      "id": "no-non-null-index-write",
+      "category": "type-safety",
+      "pack": "strict-boundaries",
+      "evidence": "semantic",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not write through an index whose read would be `T | undefined` without establishing the slot exists.",
+      "why": "Under `noUncheckedIndexedAccess`, reading an array or tuple index returns `T | undefined` unless the slot is known to exist. Writing to the same index without a guard is an implicit claim that the slot exists; if it does not, the write may create a hole, overwrite the wrong element, or turn a compile-time `undefined` into a runtime surprise.",
+      "allowedFixes": [
+        "Guard the write with `if (i < arr.length)`, `if (i in arr)`, or `if (i in tuple)` before the assignment.",
+        "Use `arr.push(value)` or `arr.splice(...)` when the intent is to add or replace elements.",
+        "For a tuple, use a numeric literal index that is within the tuple's declared length.",
+        "If the index may be missing, use `arr[i] ??= defaultValue` or `tuple[i] ??= defaultValue` to establish a default first."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Use a non-null assertion on the read side to claim the slot exists",
+          "rule": "no-non-null-assertion",
+          "because": "A non-null assertion does not prove the slot exists; it only tells the compiler to trust that it does, and the write can still land on a missing index."
+        },
+        {
+          "pattern": "Cast the index to a narrower type with `as`",
+          "rule": "no-as-cast",
+          "because": "Casting the index does not change the actual range of the value; an out-of-bounds or missing slot can still be written."
+        },
+        {
+          "pattern": "Widen the array or tuple to `any` so the index write is not checked",
+          "rule": "no-any",
+          "because": "`any` removes all type information and simply moves the out-of-bounds or missing-slot risk to runtime without a compile-time guard."
+        },
+        {
+          "pattern": "Suppress the finding with a compiler-directive comment",
+          "rule": "no-ts-comment",
+          "because": "A directive comment hides the unchecked write without adding a guard, so the runtime risk of writing to a missing slot remains."
+        },
+        {
+          "pattern": "Use `Array.isArray` on an `any` or `unknown` value to justify the index write",
+          "rule": "no-unsafe-array-narrowing",
+          "because": "`Array.isArray` narrows `unknown` to `any[]`, so the element write is still unchecked and the rule no-unsafe-array-narrowing will fire."
+        }
+      ],
+      "examples": {
+        "bad": "declare const arr: string[];\ndeclare const tuple: [string, number];\ndeclare const i: number;\n\narr[i] = 'x';\ntuple[i] = 'x';\ntuple[100] = 'x';",
+        "good": "declare const arr: string[];\ndeclare const tuple: [string, number];\ndeclare const i: number;\n\nif (i < arr.length) {\n  arr[i] = 'x';\n}\n\nif (i in arr) {\n  arr[i] = 'x';\n}\n\nfor (let j = 0; j < arr.length; j++) {\n  arr[j] = 'x';\n}\n\ntuple[0] = 'a';\ntuple[1] = 1;\n\narr[0] = 'x';\n\narr.push('x');\n\narr[i] ??= 'default';"
+      }
+    },
+    {
+      "id": "no-tautological-assertion",
+      "category": "test-quality",
+      "pack": "test-quality",
+      "evidence": "syntax",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not write an assertion that compares a value to itself, whose outcome the source text already settles.",
+      "why": "An assertion whose left and right sides are the same literal, the same identifier, or the same effect-preserving expression on the same identifier has its verdict fixed before the test runs: an equality check always passes and its negation always fails. Either way it says nothing about the code under test and gives a false sense of coverage. The rule fires only when both operands are provably the same value from syntax alone AND the call is named like an assertion: an assertion entry point (expect, assert, should) or an equality method (toBe, toEqual, equal, eql, strictEqual, deepEqual and their negations). An earlier version matched the shape alone — an inner call feeding a one-argument member call, or any two-argument method call — on the reasoning that the shape belongs to no particular test library. Complete enumeration on a typeorm clone measured that reasoning false: all 39 findings were wrong, every one an ordinary fluent API sharing the shape (.take(3).skip(3), .from(\"qaz\", \"qaz\"), .leftJoinAndSelect(\"category\", \"category\"), .of(2).add(2), cache.storeInCache(options, options)) or a deliberate test input (VersionUtils.isGreaterOrEqual(\"1\", \"1\")). The name check is what makes the shape distinctive; removing it returns the rule to 100% false positives.",
+      "allowedFixes": [
+        "Replace the tautology with a real assertion: compare the result of the code under test to a computed, expected, or fixture value.",
+        "If the assertion is a placeholder, delete it and write a test that exercises the function being tested.",
+        "For a self-comparison such as `expect(x).toBe(x)`, consider what property of `x` is actually meant to be checked and assert that instead (length, presence, a specific field, a computed transform)."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Delete the tautological assertion and leave the test otherwise unchanged",
+          "because": "It removes the only check the test had, leaving an assertion-free test. That is not an improvement, even though the matching rule (no-assertion-free-test) is not implemented yet."
+        },
+        {
+          "pattern": "Replace `expect(x).toBe(x)` with `expect(x).toBeDefined()` or `expect(x).toBeTruthy()`",
+          "because": "These assertions check only that `x` is present or truthy, not that it has the right value, and no rule in this analyzer currently catches that weaker assertion."
+        },
+        {
+          "pattern": "Cast one side with `as` or assert non-null with `!` to make the two expressions look different",
+          "rule": "no-as-cast",
+          "because": "Casts and non-null assertions are effect-free wrappers; they do not change the runtime value, so the comparison is still tautological, and `no-as-cast` or `no-non-null-assertion` will report the wrapper."
+        },
+        {
+          "pattern": "Cast the other side with `as` or assert non-null with `!`",
+          "rule": "no-non-null-assertion",
+          "because": "The same value is still being compared to itself; the wrapper only hides the tautology and trips `no-non-null-assertion` instead."
+        }
+      ],
+      "examples": {
+        "bad": "it('cannot fail', () => {\n  expect(true).toBe(true);\n  expect(1).toBe(1);\n  expect('x').toBe('x');\n  const retries = 3;\n  expect(retries).toBe(retries);\n  assert.equal('x', 'x');\n  expect(0).to.eql(0);\n});",
+        "good": "it('checks real values', () => {\n  const value = compute();\n  expect(value).toBe(3);\n  expect(fn()).toBe(fn());\n  expect(result).toMatchSnapshot();\n});"
+      }
+    },
+    {
+      "id": "no-module-augmentation",
+      "category": "type-safety",
+      "pack": "core-ts",
+      "evidence": "syntax",
+      "scope": "file",
+      "severity": "error",
+      "summary": "Do not augment a module declared in this project with a relative module specifier.",
+      "why": "A relative `declare module` adds members to a type that the type's own file does not mention, so readers who look there for the complete shape find an incomplete answer.",
+      "allowedFixes": [
+        "Declare the member on the type in the file that owns it, so the declaration and the shape it describes stay in one place.",
+        "Compose a new type that contains the original, when one caller needs extra fields and the original should not change meaning for everyone else.",
+        "Move a genuinely shared shape into a module both sides import, so the declaration has one home instead of two halves."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Assert the member at each use site with `as`.",
+          "because": "An assertion tells the compiler to accept a type it did not derive. The declaring file still does not mention the member, and every new use site needs its own assertion to keep compiling.",
+          "rule": "no-as-cast"
+        },
+        {
+          "pattern": "Type the value `any` so the member is reachable.",
+          "because": "`any` disables checking on that value entirely, so the added member resolves — and so does every misspelling of it.",
+          "rule": "no-any"
+        },
+        {
+          "pattern": "Silence the resulting property error with a compiler directive.",
+          "because": "A directive suppresses one diagnostic on one line and leaves the type unchanged, so the next reader meets the same error with no record of why it was accepted.",
+          "rule": "no-ts-comment"
+        },
+        {
+          "pattern": "Keep the augmentation and make its members required rather than optional.",
+          "because": "Removing the `?` does not put the members back on the declaring file. It additionally asserts they are present on every value of the type, including records written before the augmentation existed."
+        },
+        {
+          "pattern": "Move the augmentation into a separate declarations file.",
+          "because": "Relocating it makes it easier to find and leaves the original type describing a shape it does not have. A reader who opens the declaring file still gets an incomplete answer."
+        }
+      ],
+      "examples": {
+        "bad": "declare module './dispatch.js' {\n  interface DispatchOpened extends Partial<DispatchLiveness> {}\n}",
+        "good": "import { DispatchOpened } from './dispatch.js';\n\ninterface LiveDispatchOpened extends DispatchOpened {\n  liveness?: DispatchLiveness;\n}"
+      }
+    }
+  ]
+}

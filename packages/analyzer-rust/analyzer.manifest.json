@@ -1,0 +1,146 @@
+{
+  "protocol": 1,
+  "id": "rust",
+  "match": [
+    "**/*.rs"
+  ],
+  "exclude": [
+    "**/target/**",
+    "**/node_modules/**"
+  ],
+  "exec": {
+    "type": "process",
+    "command": "cargo",
+    "args": [
+      "run",
+      "--release",
+      "--quiet",
+      "--manifest-path",
+      "./Cargo.toml"
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-unwrap",
+      "category": "reliability",
+      "pack": "core-rust",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not use `.unwrap()` or `.expect()` on `Option` or `Result` in non-test code.",
+      "why": "`.unwrap()` and `.expect()` terminate the current thread when they encounter `None` or `Err`. They turn a recoverable failure into a panic that the caller cannot intercept, removing the chance to report, retry, or degrade gracefully.",
+      "allowedFixes": [
+        "Use `if let` or `match` to branch on the `Some`/`Ok` and `None`/`Err` cases explicitly.",
+        "Use the `?` operator to propagate the error to the caller when that is the right boundary.",
+        "Use `unwrap_or`, `unwrap_or_default`, or `unwrap_or_else` to supply a fallback value when one exists."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Replace `.unwrap()` with `.expect(\"...\")`",
+          "because": "`.expect()` still panics on `Err` or `None`; adding a message only changes the text of the panic. It is the same abort and is caught by the rule against panics in library code.",
+          "rule": "no-panic-in-library"
+        },
+        {
+          "pattern": "Force the value out with `.unwrap_unchecked()` or a raw pointer inside an `unsafe` block",
+          "because": "This trades a recoverable error for undefined behavior or an unchecked invariant. It does not handle the failure; it removes the check that was catching it.",
+          "rule": "no-unsafe-block"
+        }
+      ],
+      "examples": {
+        "bad": "fn load() {\n    may_load().unwrap();\n}",
+        "good": "fn load() -> Result<(), Error> {\n    may_load()?;\n    Ok(())\n}"
+      }
+    },
+    {
+      "id": "no-panic-in-library",
+      "category": "reliability",
+      "pack": "core-rust",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not use `panic!`, `todo!`, or `unimplemented!` in library code.",
+      "why": "`panic!`, `todo!`, and `unimplemented!` stop the current thread. In library code they move the decision of whether to abort from the caller to the library, and `todo!` and `unimplemented!` mean code that is known to be incomplete is being compiled. A library should report impossible states through its error type, not by halting the caller's process.",
+      "allowedFixes": [
+        "Return a `Result` with a descriptive error instead of panicking.",
+        "Use `unreachable!()` only for branches the type system proves impossible, or for states that a safe API cannot produce.",
+        "Move the assertion into a unit test, not into the public library surface."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Return a `Result::Err` and `.unwrap()` it at the call site",
+          "because": "The panic is still reachable at the call site through `.unwrap()`; it has just moved across a function boundary.",
+          "rule": "no-unwrap"
+        },
+        {
+          "pattern": "Use `unsafe { std::hint::unreachable_unchecked() }` or other unsafe code to avoid the panic",
+          "because": "It removes the runtime check and promises the compiler the branch cannot happen. If that promise is wrong, the program has undefined behavior instead of a clean panic.",
+          "rule": "no-unsafe-block"
+        }
+      ],
+      "examples": {
+        "bad": "fn parse(input: &str) -> i32 {\n    todo!();\n}",
+        "good": "fn parse(input: &str) -> Result<i32, String> {\n    input.parse().map_err(|e| format!(\"parse failed: {e}\"))\n}"
+      }
+    },
+    {
+      "id": "no-unsafe-block",
+      "category": "safety",
+      "pack": "core-rust",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not use an `unsafe` block without a `// SAFETY:` comment justifying it.",
+      "why": "An `unsafe` block opts out of the compiler's memory, thread, and aliasing guarantees. Every such block needs a human-readable justification of why the invariants it relies on hold, so a future reader can audit it and so a reviewer can check that the claimed invariants are maintained.",
+      "allowedFixes": [
+        "Add a `// SAFETY:` comment that names the preconditions and explains why they are satisfied.",
+        "Replace the unsafe operation with a safe abstraction from the standard library or a vetted crate.",
+        "Encapsulate the unsafe operation in a small, carefully reviewed module and expose only a safe wrapper."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Add an ordinary comment above the block without the `SAFETY:` marker",
+          "because": "An ordinary comment does not signal to the analyzer or a reviewer that the block's preconditions have been explicitly considered."
+        },
+        {
+          "pattern": "Move the `unsafe` keyword into the function signature with `unsafe fn`",
+          "because": "It shifts the unsafe contract to every caller instead of removing the dangerous operation; the block still needs justification at the site."
+        }
+      ],
+      "examples": {
+        "bad": "fn read(ptr: *const i32) -> i32 {\n    unsafe { *ptr }\n}",
+        "good": "fn read(ptr: *const i32) -> i32 {\n    // SAFETY: ptr is valid and aligned by contract.\n    unsafe { *ptr }\n}"
+      }
+    },
+    {
+      "id": "no-ignored-result",
+      "category": "reliability",
+      "pack": "core-rust",
+      "scope": "file",
+      "severity": "warning",
+      "evidence": "syntax",
+      "summary": "Do not discard the result of a call with `let _ = ...`.",
+      "why": "A `let _ = ...` binding explicitly ignores the value. When that value is the result of a call, the program is choosing not to observe success or failure. If the call returns a `Result` or a `#[must_use]` value, this silently drops an outcome the caller should handle, including an error that should be propagated or reported.",
+      "allowedFixes": [
+        "Use the `?` operator to propagate an error to the caller.",
+        "Use `if let` or `match` to branch on the `Result` and handle the `Err` case.",
+        "Assign the value to a named binding and act on it, or drop it explicitly with a comment if discarding is truly intended."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Call `.unwrap()` on the result and discard it with `let _ = result.unwrap();`",
+          "because": "It discards the success value and panics on the error, so the failure is still unhandled and now also aborts the program.",
+          "rule": "no-unwrap"
+        },
+        {
+          "pattern": "Wrap the call in an `unsafe` block to bypass the `Result` check",
+          "because": "Using `unsafe` to suppress the result type removes the compiler's error handling without producing a real value; the ignored result remains ignored and the code gains an unsound justification.",
+          "rule": "no-unsafe-block"
+        }
+      ],
+      "examples": {
+        "bad": "fn caller() {\n    let _ = may_fail();\n}",
+        "good": "fn caller() {\n    if let Err(e) = may_fail() {\n        log(e);\n    }\n}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "protocol": 1,
+  "id": "csharp",
+  "match": [
+    "**/*.cs"
+  ],
+  "exclude": [
+    "**/bin/**",
+    "**/obj/**",
+    "**/*.g.cs",
+    "**/*.designer.cs",
+    "**/node_modules/**"
+  ],
+  "exec": {
+    "type": "process",
+    "command": "dotnet",
+    "args": [
+      "./src/bin/Release/net9.0/CheckYourVibe.Analyzer.CSharp.dll"
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-dynamic",
+      "category": "type-safety",
+      "pack": "core-cs",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "semantic",
+      "summary": "Do not declare or use the `dynamic` type.",
+      "why": "A value typed `dynamic` is never checked by the compiler: member access, method calls, and operators on it are all resolved at runtime instead of compile time. A typo in a member name, a call with the wrong number of arguments, or an operation the underlying value does not actually support all compile without complaint and only surface once that line executes, often far from where the mistake was made.",
+      "allowedFixes": [
+        "Declare the value with its actual static type instead of `dynamic`, so the compiler checks every use of it.",
+        "If the shape is genuinely unknown until runtime, model it as a specific interface or base type and use pattern matching or a type check to branch on the concrete case.",
+        "If the value came from a boundary that only offers loosely typed data, parse or map it into a concrete type immediately at that boundary rather than carrying `dynamic` further into the program."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Declare the value as `object` instead.",
+          "because": "`object` still leaves every member access unresolved and requires a cast before anything useful can be done with it; it does not restore compile-time checking, it just changes which keyword defers it.",
+          "rule": "no-unchecked-cast"
+        },
+        {
+          "pattern": "Keep the value `dynamic` but wrap each use in a try/catch.",
+          "because": "This converts a compile-time error into a runtime exception that is caught instead of prevented; the mistake still ships, it is merely no longer visible until the catch block runs."
+        }
+      ],
+      "examples": {
+        "bad": "dynamic settings = LoadSettings();\nConsole.WriteLine(settings.Timeout);",
+        "good": "Settings settings = LoadSettings();\nConsole.WriteLine(settings.Timeout);"
+      }
+    },
+    {
+      "id": "no-unchecked-cast",
+      "category": "type-safety",
+      "pack": "core-cs",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "semantic",
+      "summary": "Do not use a direct cast for a conversion that can fail at runtime; check first.",
+      "why": "A direct cast such as `(T)value` asserts, without checking, that the value already is a `T`. When that assertion is wrong the runtime throws an exception at the cast site, which is often far from whatever actually produced the mismatched value. A conversion that can genuinely fail should be visible in the code as something that can fail, with an explicit path for the case where it does not hold.",
+      "allowedFixes": [
+        "Use `as` to attempt the conversion, then check the result for null before using it.",
+        "Use a pattern-matching `is` check (`if (value is T typed)`) to test and convert in one step.",
+        "Use a `switch` expression or statement over patterns when the value can be one of several known shapes."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Wrap the cast in a try/catch instead of checking first.",
+          "because": "It reacts to the failure after the fact instead of avoiding it, and it can hide unrelated exceptions thrown by code that runs alongside the cast inside the same try block."
+        },
+        {
+          "pattern": "Suppress the possibility of failure with the null-forgiving operator on the result of `as`.",
+          "because": "It removes the compiler's null check on the very value the cast might fail to produce, trading one unchecked assumption for another.",
+          "rule": "no-null-forgiving"
+        }
+      ],
+      "examples": {
+        "bad": "void Handle(object value)\n{\n    var request = (Request)value;\n    Process(request);\n}",
+        "good": "void Handle(object value)\n{\n    if (value is Request request)\n    {\n        Process(request);\n    }\n}"
+      }
+    },
+    {
+      "id": "no-null-forgiving",
+      "category": "correctness",
+      "pack": "core-cs",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not use the `!` null-forgiving operator.",
+      "why": "The null-forgiving operator tells the compiler to treat a value as not-null without checking anything about it. Nullable reference warnings exist to catch exactly the mistake this operator disables the warning for; every use is a promise the author did not actually verify, and a wrong promise surfaces later as a `NullReferenceException` at a call site that trusted it.",
+      "allowedFixes": [
+        "Add an explicit null check (`if (value is null) { ... }`) and handle the null case before using the value.",
+        "Use the null-conditional operator (`?.`) together with a fallback (`??`) so the code does something defined when the value is null.",
+        "Change the surrounding method or property so it never produces a null in the first place, removing the need to assert past it later."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Change the value's declared type to allow null and forgive it at every call site that reads it.",
+          "because": "It moves the unchecked assumption to every reader of the value instead of removing it, multiplying the places a wrong assumption can surface."
+        },
+        {
+          "pattern": "Disable nullable reference warnings for the file or project instead of resolving individual cases.",
+          "because": "It removes the compiler's ability to catch the next null mistake too, not just this one."
+        }
+      ],
+      "examples": {
+        "bad": "string? name = LookUpName(id);\nConsole.WriteLine(name!.Length);",
+        "good": "string? name = LookUpName(id);\nif (name is not null)\n{\n    Console.WriteLine(name.Length);\n}"
+      }
+    },
+    {
+      "id": "no-empty-catch",
+      "category": "error-handling",
+      "pack": "core-cs",
+      "scope": "file",
+      "severity": "error",
+      "evidence": "syntax",
+      "summary": "Do not leave a `catch` block that swallows the exception without handling, logging, or rethrowing it.",
+      "why": "An exception is the runtime telling the program that something it expected did not hold. A catch block that runs no code, or only a no-op statement, discards that signal entirely: the program continues as if nothing happened, and whatever depended on the failed operation having succeeded now runs against an inconsistent state with no record that anything went wrong.",
+      "allowedFixes": [
+        "Rethrow the exception (`throw;`) if this code is not the right place to handle it, preserving the original stack trace.",
+        "Handle the specific failure meaningfully: retry, use a well-defined fallback value, or surface it to the caller as an explicit result.",
+        "Record the failure somewhere a person can discover it before continuing, if continuing is genuinely correct."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Add a comment inside the empty block explaining why it is fine to ignore.",
+          "because": "A comment changes nothing about the program's behavior; the failure is still discarded and the state it left behind is still unrecorded."
+        },
+        {
+          "pattern": "Catch a narrower exception type but still do nothing with it.",
+          "because": "Narrowing the caught type does not address swallowing; whatever failure does match is still discarded exactly as before."
+        }
+      ],
+      "examples": {
+        "bad": "try\n{\n    Save(document);\n}\ncatch (IOException)\n{\n}",
+        "good": "try\n{\n    Save(document);\n}\ncatch (IOException ex)\n{\n    Log(ex);\n    throw;\n}"
+      }
+    }
+  ]
+}

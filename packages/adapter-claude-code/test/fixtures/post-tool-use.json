@@ -1,0 +1,10 @@
+{
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/home/user/checkout/src/components/Widget.tsx",
+    "old_string": "let value: any = 1;",
+    "new_string": "let value: unknown = 1;"
+  },
+  "tool_output": "",
+  "hook_event_name": "PostToolUse"
+}

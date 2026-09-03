@@ -1,0 +1,124 @@
+{
+  "protocol": 1,
+  "id": "unreal",
+  "match": [
+    "**/*.h",
+    "**/*.cpp"
+  ],
+  "exclude": [
+    "**/Intermediate/**",
+    "**/Binaries/**",
+    "**/Saved/**",
+    "**/DerivedDataCache/**",
+    "**/*.generated.h",
+    "**/node_modules/**"
+  ],
+  "exec": {
+    "type": "node",
+    "module": "./src/index.mjs"
+  },
+  "rules": [
+    {
+      "id": "gc-untracked-object-member",
+      "category": "memory-safety",
+      "pack": "unreal-gc",
+      "scope": "file",
+      "evidence": "syntax",
+      "severity": "warning",
+      "summary": "A reflected class or struct holds a raw object pointer or container of raw object pointers without a UPROPERTY annotation.",
+      "why": "The Unreal Engine garbage collector only follows references the reflection system can see. A UPROPERTY mark makes a member visible to the collector, which counts it as a reference, keeps the object alive while the reference exists, and nulls the member when the object is collected. A raw pointer or container of raw pointers without UPROPERTY is invisible to the collector; the object it points at can be collected while the pointer still holds the old address, and the member is not nulled. The published Unreal Engine object reference documentation describes this behaviour: raw object pointers are not tracked automatically, and UPROPERTY-marked object members should migrate to TObjectPtr where possible.",
+      "allowedFixes": [
+        "Mark the member with UPROPERTY() so the reflection system tracks it.",
+        "Change the member to TObjectPtr<T> and keep the UPROPERTY() annotation.",
+        "If the reference should not keep the object alive, use a lifetime-aware type such as TWeakObjectPtr or TStrongObjectPtr and remove the UPROPERTY requirement.",
+        "If the member is intentionally non-owning, document the lifetime contract clearly instead of leaving it as an unmarked raw pointer."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Mark the member with UPROPERTY() while leaving the enclosing type as a plain C++ class or struct.",
+          "because": "UPROPERTY() is only available inside a UCLASS(), USTRUCT(), or UINTERFACE() that carries GENERATED_BODY(). In a plain C++ type the macro does not compile."
+        },
+        {
+          "pattern": "Change the raw pointer to a reference (UMyClass&).",
+          "because": "UPROPERTY() does not support references, and a reference neither makes the object reachable by the collector nor survives the object's destruction."
+        },
+        {
+          "pattern": "Leave the pointer raw because the code is not exposed to Blueprints.",
+          "because": "The garbage collector runs independently of Blueprint access; a raw pointer is invisible to the reflection system in either case."
+        }
+      ],
+      "examples": {
+        "bad": "UCLASS()\nclass AMyActor : public AActor\n{\n    GENERATED_BODY()\n\npublic:\n    UMyClass* Target;\n};",
+        "good": "UCLASS()\nclass AMyActor : public AActor\n{\n    GENERATED_BODY()\n\npublic:\n    UPROPERTY()\n    TObjectPtr<UMyClass> Target;\n};"
+      }
+    },
+    {
+      "id": "gc-object-pointer-in-unreflected-type",
+      "category": "memory-safety",
+      "pack": "unreal-gc",
+      "scope": "file",
+      "evidence": "syntax",
+      "severity": "warning",
+      "summary": "A plain C++ class or struct that is not reflected holds a raw object pointer or container of raw object pointers.",
+      "why": "A plain class or struct has no GENERATED_BODY() and no UPROPERTY() support, so the reflection system cannot see the pointer and the garbage collector cannot count it as a reference. The lifetime question still matters: if the pointed-to object is collected, the raw pointer becomes dangling. The pointer is only safe when the ownership is explicit and the holder is guaranteed to be destroyed before the object it points at. This rule flags the unsafe shape so the ownership can be made explicit rather than assumed.",
+      "allowedFixes": [
+        "Convert the enclosing type to a USTRUCT() with GENERATED_BODY() and then mark the member with UPROPERTY() if it should be tracked.",
+        "Hold the reference with a lifetime-aware type such as TWeakObjectPtr or TStrongObjectPtr that does not require reflection.",
+        "Document and constrain the ownership so the holder is always destroyed before the pointed-to object (for example, by making it a stack-local helper that is never retained after the object dies)."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Add UPROPERTY() to the member while leaving the enclosing type plain.",
+          "because": "UPROPERTY() is only legal inside a UCLASS(), USTRUCT(), or UINTERFACE() that carries GENERATED_BODY(); the macro does not compile in a plain C++ type."
+        },
+        {
+          "pattern": "Ignore the pointer because the enclosing type is not a UObject.",
+          "because": "A dangling pointer is still a dangling pointer regardless of whether the type that holds it is reflected; the collector cannot null it for you."
+        },
+        {
+          "pattern": "Change the raw pointer to TObjectPtr without adding UPROPERTY() or GENERATED_BODY().",
+          "because": "TObjectPtr is only garbage-collection safe when it is marked as a UPROPERTY; an unmarked TObjectPtr in a plain type is still invisible to the collector."
+        }
+      ],
+      "examples": {
+        "bad": "struct FPlainCache\n{\n    UMyClass* Target;\n};",
+        "good": "struct FPlainCache\n{\n    TWeakObjectPtr<UMyClass> Target;\n};"
+      }
+    },
+    {
+      "id": "uproperty-raw-object-pointer",
+      "category": "memory-safety",
+      "pack": "unreal-gc",
+      "scope": "file",
+      "evidence": "syntax",
+      "severity": "warning",
+      "summary": "A UPROPERTY member is declared as a raw object pointer or container of raw object pointers rather than TObjectPtr.",
+      "why": "The published Unreal Engine object pointer documentation states that UPROPERTY-marked object members should migrate to TObjectPtr where possible. A UPROPERTY raw pointer keeps the object alive, but it is the older, less safe form: it provides no explicit nulling safety and is more vulnerable to misuse than the documented modern form. TObjectPtr is the form a UPROPERTY-marked object reference should take.",
+      "allowedFixes": [
+        "Change the UPROPERTY to TObjectPtr<T>.",
+        "If the pointer is intentionally optional, keep it as a UPROPERTY and use TObjectPtr<T> so it is safely nulled when the object is collected.",
+        "If the reference is not meant to keep the object alive and should be safe when the object is collected, remove UPROPERTY() and use a lifetime-aware type such as TWeakObjectPtr instead."
+      ],
+      "notFixes": [
+        {
+          "pattern": "Remove UPROPERTY() and keep the raw pointer.",
+          "because": "Without UPROPERTY the member is invisible to the collector; the object it points at can be collected at any time.",
+          "rule": "gc-untracked-object-member"
+        },
+        {
+          "pattern": "Change the raw pointer to a reference (UMyClass&).",
+          "because": "UPROPERTY() does not support references, and a reference cannot survive the destruction of the object it points at."
+        },
+        {
+          "pattern": "Wrap the raw pointer in a helper struct that does not itself carry GENERATED_BODY() and UPROPERTY().",
+          "because": "A wrapper that is not itself a reflected USTRUCT is still invisible to the collector; the indirection does not add tracking.",
+          "rule": "gc-object-pointer-in-unreflected-type"
+        }
+      ],
+      "examples": {
+        "bad": "UCLASS()\nclass AMyActor : public AActor\n{\n    GENERATED_BODY()\n\npublic:\n    UPROPERTY()\n    UMyClass* Target;\n};",
+        "good": "UCLASS()\nclass AMyActor : public AActor\n{\n    GENERATED_BODY()\n\npublic:\n    UPROPERTY()\n    TObjectPtr<UMyClass> Target;\n};"
+      }
+    }
+  ]
+}

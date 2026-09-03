@@ -1,0 +1,16 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "write",
+  "tool_input": {
+    "file_path": "/home/user/checkout/src/components/Widget.tsx",
+    "content": "yo"
+  },
+  "tool_use_id": "functions.write:0",
+  "tool_response": {
+    "success": true,
+    "output": "File created successfully at: /home/user/checkout/src/components/Widget.tsx",
+    "error": null
+  },
+  "session_id": "glorious-sputter",
+  "prompt_id": "1a4a3ba9-e3f6-471e-ab5a-64b7c8165cbb"
+}
