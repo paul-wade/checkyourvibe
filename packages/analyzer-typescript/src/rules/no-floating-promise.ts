@@ -115,7 +115,15 @@ function isHandled(node: CallExpression | NewExpression): boolean {
     // `void promise` is an explicit, deliberate discard, but only if the
     // author documents why it is safe to ignore the promise. A bare `void`
     // operator looks intentional yet gives the next reader no evidence of that.
+    //
+    // A rejection handler settles the question before the comment requirement
+    // applies: `void p.catch(handler)` already states what happens when the
+    // promise fails.
     if (Node.isVoidExpression(parent) && parent.getExpression() === current) {
+      if (Node.isCallExpression(current) && isExplicitlyHandledChain(current)) {
+        return true;
+      }
+
       const statement = parent.getParent();
       if (statement !== undefined && Node.isExpressionStatement(statement)) {
         return statement.getTrailingCommentRanges().length > 0;
