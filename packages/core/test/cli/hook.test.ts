@@ -147,6 +147,51 @@ describe('cyv hook', () => {
     }
   });
 
+  it('--observe records a violation without telling the agent anything', async () => {
+    // The point of observing is to measure how often an edit introduces a
+    // violation without changing what the agent does. A hook that speaks, or
+    // exits non-zero, is an intervention, and cannot be used as an instrument
+    // in an arm that is meant to be unenforced.
+    const { repo, sourcePath } = await makeConfiguredRepo('export const value = 1; // VIOLATION\n');
+    const captured = captureStd();
+    try {
+      const code = await runHook(
+        context(repo, ['claude-code', '--observe']),
+        claudeCodePayload(sourcePath),
+      );
+      expect(code).toBe(0);
+      expect(captured.errLines).toHaveLength(0);
+      expect(captured.outLines).toHaveLength(0);
+
+      const log = await readFile(join(repo, '.cyv-review', 'observations.jsonl'), 'utf-8');
+      const first = log.trim().split('\n')[0] ?? '{}';
+      const entry: unknown = JSON.parse(first);
+      expect(entry).toMatchObject({ violationCount: 1, sequence: 1 });
+    } finally {
+      captured.restore();
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('--observe records a clean edit too, so a rate has a denominator', async () => {
+    const { repo, sourcePath } = await makeConfiguredRepo('export const value = 1;\n');
+    const captured = captureStd();
+    try {
+      const code = await runHook(
+        context(repo, ['claude-code', '--observe']),
+        claudeCodePayload(sourcePath),
+      );
+      expect(code).toBe(0);
+
+      const log = await readFile(join(repo, '.cyv-review', 'observations.jsonl'), 'utf-8');
+      const entry: unknown = JSON.parse(log.trim().split('\n')[0] ?? '{}');
+      expect(entry).toMatchObject({ violationCount: 0, sequence: 1 });
+    } finally {
+      captured.restore();
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
   it('exits 0 for a valid payload naming a clean file', async () => {
     const { repo, sourcePath } = await makeConfiguredRepo('export const value = 1;\n');
     const captured = captureStd();

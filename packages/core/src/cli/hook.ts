@@ -11,12 +11,14 @@
  * git backstop (a pre-commit `cyv check --staged --strict`) is the layer
  * allowed to block; this one is not.
  */
+import path from 'node:path';
+import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import type { Command, CommandContext } from './types.js';
 import { findConfig } from '../config/load.js';
 import { isUnknownArray } from '../guards.js';
 import { runCheck } from '../run/check.js';
 import { partitionViolations, readBaseline } from '../baseline/index.js';
-import type { AgentPlugin, AgentSurface, HookPayload } from '../protocol/index.js';
+import type { AgentPlugin, AgentSurface, HookPayload, Violation } from '../protocol/index.js';
 
 function messageFor(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -127,10 +129,53 @@ async function resolvePlugin(agentId: string): Promise<AgentPlugin | undefined> 
  * which diffs the working tree via git the same way `cyv check --working`
  * does. See `protocol/agent.ts` for why both cases exist.
  */
+/**
+ * Append one edit's outcome to the observation log.
+ *
+ * Observing exists to measure how often an edit introduces a violation without
+ * changing what the agent does. Clean edits are recorded too: a rate needs a
+ * denominator, and a log holding only failures cannot say whether one violation
+ * came from three edits or three hundred.
+ *
+ * The sequence number is the count of edits observed so far in this repository,
+ * so findings can be binned by how far into a session they happened — the
+ * question of whether a rule read once at the start still holds at edit fifty.
+ */
+async function recordObservation(
+  repoRoot: string,
+  payload: HookPayload,
+  violations: Violation[],
+): Promise<void> {
+  const dir = path.join(repoRoot, '.cyv-review');
+  const logPath = path.join(dir, 'observations.jsonl');
+
+  let sequence = 1;
+  try {
+    const existing = await readFile(logPath, 'utf-8');
+    sequence = existing.split('\n').filter((line) => line.trim().length > 0).length + 1;
+  } catch {
+    sequence = 1;
+  }
+
+  const entry = {
+    at: new Date().toISOString(),
+    sequence,
+    event: payload.event,
+    scope: payload.scope ?? 'files',
+    files: payload.files,
+    violationCount: violations.length,
+    violations: violations.map((v) => ({ ruleId: v.ruleId, file: v.file, line: v.line })),
+  };
+
+  await mkdir(dir, { recursive: true });
+  await appendFile(logPath, `${JSON.stringify(entry)}\n`, 'utf-8');
+}
+
 async function runPipeline(
   ctx: CommandContext,
   plugin: AgentPlugin,
   payload: HookPayload,
+  observe: boolean,
 ): Promise<number> {
   const { report, repoRoot } =
     payload.scope === 'working-tree'
@@ -158,6 +203,13 @@ async function runPipeline(
   const baseline = await readBaseline(repoRoot);
   const violations =
     baseline === null ? report.violations : partitionViolations(report.violations, baseline).fresh;
+
+  // Observing never speaks and never blocks. Anything written here would reach
+  // the agent and make this an intervention rather than a measurement.
+  if (observe) {
+    await recordObservation(repoRoot, payload, violations);
+    return 0;
+  }
 
   if (violations.length === 0) {
     return 0;
@@ -197,6 +249,10 @@ export async function runHook(ctx: CommandContext, rawStdin: string): Promise<nu
     return 0;
   }
 
+  // `--observe` turns the hook into an instrument: it checks exactly as it
+  // would otherwise, records what it found, and reports nothing.
+  const observe = ctx.argv.includes('--observe');
+
   const agentId = ctx.argv[0];
   if (agentId === undefined || agentId.length === 0) {
     warn('missing agent id. Usage: cyv hook <agent-id>. No checks run.');
@@ -211,7 +267,7 @@ export async function runHook(ctx: CommandContext, rawStdin: string): Promise<nu
     }
 
     const payload = plugin.parseHookPayload(rawStdin);
-    return await runPipeline(ctx, plugin, payload);
+    return await runPipeline(ctx, plugin, payload, observe);
   } catch (err) {
     warn(messageFor(err));
     return 0;
