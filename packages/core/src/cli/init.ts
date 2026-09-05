@@ -1072,12 +1072,32 @@ async function runPluginPlan(
  * `confirm(true, …)` answers yes, and answering yes here would take the
  * baseline. `--yes` has to reach `confirm` as a return, not as an answer.
  *
- * `--yes` still gets the violation count and the pointer to the adoption docs,
- * because that is the useful part of the offer. What it does not get is the
- * baseline itself: recording every existing violation as deferred debt is too
- * large a side effect to infer from a flag that only means "do not ask me".
+ * `--yes` used to be given the violation count as well, on the grounds that the
+ * count was the useful part of the offer. It is not worth what it costs. The
+ * count comes from `runCheck({ mode: 'all' })`, a type-aware analysis of every
+ * file in the repository, and it was run before the `yes` branch was reached —
+ * so a `--yes` run paid for a whole-repository scan and then declined to use
+ * its result for anything but one line of output. On a large repository that
+ * scan exhausts the default V8 heap and kills the process with a fatal
+ * allocation error, after `init` has already written every file it came to
+ * write. A crash that discards a completed run to print a number nobody asked
+ * for is a bad trade, so `--yes` now returns before the scan and names the
+ * command that computes the count on purpose.
+ *
+ * What `--yes` still does not get is the baseline itself: recording every
+ * existing violation as deferred debt is too large a side effect to infer from
+ * a flag that only means "do not ask me".
  */
 async function maybeOfferBaseline(repoRoot: string, yes: boolean): Promise<void> {
+  if (yes) {
+    console.log(
+      'A baseline records existing violations as deferred debt, not a fix. ' +
+        'See docs/adoption.md for the adoption path.',
+    );
+    console.log('No baseline written: --yes runs without prompting. Run `cyv baseline` to take one.');
+    return;
+  }
+
   const { report } = await runCheck({ cwd: repoRoot, mode: 'all' });
   if (report.violations.length === 0) {
     return;
@@ -1094,11 +1114,6 @@ async function maybeOfferBaseline(repoRoot: string, yes: boolean): Promise<void>
   console.log(
     'A baseline records these as deferred debt, not a fix. See docs/adoption.md for the adoption path.',
   );
-
-  if (yes) {
-    console.log('No baseline written: --yes runs without prompting. Run `cyv baseline` to take one.');
-    return;
-  }
 
   const take = await confirm(
     false,

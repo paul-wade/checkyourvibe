@@ -645,9 +645,13 @@ describe('cyv init', () => {
       expect(code).toBe(0);
 
       const output = captured.logs.join('\n');
-      expect(output).toContain('This run found 1 violation(s) across the repository.');
-      expect(output).toContain('A baseline records these as deferred debt, not a fix.');
+      expect(output).toContain('A baseline records existing violations as deferred debt, not a fix.');
       expect(output).toContain('docs/adoption.md');
+
+      // The adoption guidance is static text and survives `--yes`. The count
+      // does not: it is the one part of the offer that costs a type-aware scan
+      // of the whole repository, which `--yes` would discard.
+      expect(output).not.toContain('This run found');
 
       const hasBaseline = await baselineExists(repo);
       expect(hasBaseline).toBe(false);
@@ -679,10 +683,16 @@ describe('cyv init', () => {
       expect(code).toBe(0);
 
       const output = captured.logs.join('\n');
-      expect(output).toContain('This run found 1 violation(s) across the repository.');
       expect(output).toContain('No baseline written: --yes runs without prompting.');
       expect(output).not.toContain('Take a baseline now?');
       expect(await baselineExists(repo)).toBe(false);
+
+      // The repository has a violation, so a whole-repository scan would have
+      // had a count to report. Its absence is what says the scan never ran:
+      // under `--yes` the count could only be printed and then discarded, and
+      // paying for a type-aware pass over every file to print one line is what
+      // exhausts the heap and kills `init` on a large repository.
+      expect(output).not.toContain('This run found');
     } finally {
       if (descriptor === undefined) {
         Reflect.deleteProperty(process.stdin, 'isTTY');
