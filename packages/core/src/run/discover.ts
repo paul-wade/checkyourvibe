@@ -228,19 +228,43 @@ export async function selectFiles(opts: SelectOptions): Promise<FileSelection> {
     return toFileSelection(mode, await stdoutToFiles(stdout, repoRoot));
   }
 
-  const branch = await defaultBranch(repoRoot);
-  const base = await mergeBase(repoRoot, branch);
+  // A repository with no commits has no HEAD, and `git merge-base HEAD HEAD` is
+  // fatal there rather than empty. `staged` carries this guard already; the
+  // branch-comparing modes did not, so the first check in a fresh repository
+  // threw, the throw was swallowed upstream, and the hook exited 0 having read
+  // nothing. That is the silent pass this project exists to prevent.
+  const hasCommits = await refExists(repoRoot, 'HEAD');
+  const branch = hasCommits ? await defaultBranch(repoRoot) : 'HEAD';
+  const base = hasCommits ? await mergeBase(repoRoot, branch) : null;
 
   let reason: string | undefined;
   let args: string[];
 
   if (mode === 'working') {
-    if (base === null) {
+    // `git diff` reports tracked files that changed, so a file the agent
+    // created is invisible here until someone adds it. Untracked files are
+    // exactly what this mode has to see: the `Stop` hook falls back to the
+    // working tree precisely because a file written by a shell command raises
+    // no edit event, and a shell-created file is untracked by definition. `all`
+    // learned this above and `working` had not, which left the fallback unable
+    // to see the one thing it was added to catch — a run finished with sixteen
+    // violations in two files the hook was never shown.
+    const changed = hasCommits
+      ? await stdoutToFiles(
+          await runGit(repoRoot, [
+            'diff', '--name-only', '--diff-filter=ACMR', base ?? 'HEAD',
+          ]),
+          repoRoot,
+        )
+      : [];
+    const untracked = await stdoutToFiles(
+      await runGit(repoRoot, ['ls-files', '--others', '--exclude-standard']),
+      repoRoot,
+    );
+    if (hasCommits && base === null) {
       reason = `Could not find a merge base for ${branch}; comparing the working tree against HEAD.`;
-      args = ['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'];
-    } else {
-      args = ['diff', '--name-only', '--diff-filter=ACMR', base];
     }
+    return toFileSelection(mode, [...new Set([...changed, ...untracked])], reason);
   } else if (mode === 'branch') {
     if (base === null) {
       reason = `Could not find a merge base for ${branch}; comparing the branch against HEAD.`;
