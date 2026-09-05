@@ -8,9 +8,11 @@ coverage/
 *.tsbuildinfo
 .cyv-review/
 
-# .NET build output
-bin/
-obj/
+# .NET build output. Scoped to the C# analyzer: a bare `bin/` also matched
+# packages/analyzer-typescript/src/bin, which is TypeScript source, and dropped
+# it when the public repository was created from a fresh `git add`.
+packages/analyzer-csharp/src/bin/
+packages/analyzer-csharp/src/obj/
 *.tsbuildinfo
 
 # Real provenance deny list — names the employer/people/products being scrubbed.
