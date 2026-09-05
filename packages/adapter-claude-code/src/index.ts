@@ -150,7 +150,18 @@ async function plan(ctx: PlanContext): Promise<PlannedWrite[]> {
         // contract among the six agents that can hold a turn open until a note
         // has been read (Requirement 1.2). Without it a note left while the
         // agent was mid-task waits for the next edit, and there may not be one.
-        Stop: [{ hooks: [{ type: 'command', command: notesCommand }] }],
+        // The analyzer runs here too, over the working tree rather than one
+        // file. `PostToolUse` only fires for Edit and Write, so a file created
+        // or moved by a shell command is never checked — and a refactor is
+        // mostly shell commands. Observed on a real build: the analyzer blocked
+        // three times while files were being written, then the refactor stage
+        // moved that code into new files and shipped thirty-six violations the
+        // hook had never been shown. `Stop` can refuse to end a turn, so this
+        // is the last point at which that is still fixable.
+        Stop: [
+          { hooks: [{ type: 'command', command: notesCommand }] },
+          { hooks: [{ type: 'command', command: hookCommand }] },
+        ],
       },
     },
     null,
@@ -229,6 +240,17 @@ function parseHookPayload(raw: string): HookPayload {
 
   if (!isJSONObject(parsed)) {
     throw new Error('Claude Code PostToolUse payload is not a JSON object.');
+  }
+
+  // `Stop` carries no `tool_input`: nothing was edited, the agent is trying to
+  // end its turn. That is the only moment a file created or moved by a shell
+  // command can be examined at all, because such a file never raised an Edit or
+  // Write event and so was never checked. Every other adapter already falls
+  // back to a working-tree scope; this one threw here instead, which left a
+  // refactor performed with `mv` completely unchecked.
+  const stopEvent = parsed['hook_event_name'];
+  if (stopEvent === 'Stop' || stopEvent === 'SubagentStop') {
+    return { files: [], event: stopEvent, scope: 'working-tree' };
   }
 
   const toolInput = parsed['tool_input'];

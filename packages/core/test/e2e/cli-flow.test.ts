@@ -275,7 +275,7 @@ describe('cyv end-to-end', () => {
     // both means an upgrade cannot orphan either.
     //
     // The number is what this test is for: a second `init` must not grow it.
-    expect(settingsRaw.split('hook claude-code').length - 1).toBe(3);
+    expect(settingsRaw.split('hook claude-code').length - 1).toBe(4);
     expect(settingsRaw.split('comments --hook claude-code').length - 1).toBe(2);
   }, 15_000);
 

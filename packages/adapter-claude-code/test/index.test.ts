@@ -71,6 +71,19 @@ describe('parseHookPayload', () => {
     expect(file).toBe('/home/user/checkout/src/components/Widget.tsx');
   });
 
+  it('asks for a working-tree check when the turn is ending', () => {
+    // Stop carries no tool_input: nothing was edited, the agent is trying to
+    // finish. A file created or moved by a shell command never raised an
+    // Edit or Write event, so the only chance to see it is here.
+    const payload = claudeCodePlugin.parseHookPayload(
+      JSON.stringify({ hook_event_name: 'Stop', cwd: '/home/user/checkout' }),
+    );
+
+    expect(payload.event).toBe('Stop');
+    expect(payload.scope).toBe('working-tree');
+    expect(payload.files).toEqual([]);
+  });
+
   it('throws on malformed JSON', () => {
     expect(() => claudeCodePlugin.parseHookPayload('not json')).toThrow();
   });
