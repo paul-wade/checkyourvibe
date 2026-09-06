@@ -12,6 +12,7 @@ import {
   readDispatchEntries,
   readDispatchLog,
   refuseDispatch,
+  type ReadDispatchStats
 } from '../../src/executor/store.js';
 import { classifyOutcome } from '../../src/executor/outcome.js';
 import { isInFlight, type DispatchAssignment } from '../../src/executor/dispatch.js';
@@ -257,9 +258,10 @@ describe('the dispatch store', () => {
     });
     await appendFile(dispatchLogPath(repo), 'not valid json\n{"event":"opened"}\n', 'utf-8');
 
-    const stats = { unparseableLines: 0 };
+    const stats: ReadDispatchStats = { unparseableLines: 0, unparseableLineNumbers: [] };
     expect(await readDispatchEntries(repo, stats)).toEqual([opened]);
     expect(stats.unparseableLines).toBe(2);
+    expect(stats.unparseableLineNumbers).toEqual([2, 3]);
   });
 
   it('rejects an entry whose declaration names a task kind the core does not define', async () => {
@@ -276,9 +278,10 @@ describe('the dispatch store', () => {
     });
     await appendFile(dispatchLogPath(repo), `${line}\n`, 'utf-8');
 
-    const stats = { unparseableLines: 0 };
+    const stats: ReadDispatchStats = { unparseableLines: 0, unparseableLineNumbers: [] };
     expect(await readDispatchEntries(repo, stats)).toEqual([]);
     expect(stats.unparseableLines).toBe(1);
+    expect(stats.unparseableLineNumbers).toEqual([1]);
   });
 
   it('rejects an entry missing the expected-file-change declaration', async () => {

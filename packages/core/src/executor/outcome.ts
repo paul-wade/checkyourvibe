@@ -13,7 +13,18 @@
  * is `produced-nothing` (Requirement 2.3), which says the harness failed rather
  * than the task.
  */
-import { ownsPath } from './ownership.js';
+import { claimsWholeRepository, ownsPath } from './ownership.js';
+
+/** One thing a gate objected to, kept so a failure can be read rather than counted. */
+export interface GateFinding {
+  /** Repo-relative path the gate objected to. */
+  path: string;
+  line: number;
+  column: number;
+  /** The rule that objected, when the gate has rules. */
+  ruleId: string;
+  message: string;
+}
 
 /** One gate named for a dispatch, and whether it passed against the result. */
 export interface GateResult {
@@ -21,6 +32,16 @@ export interface GateResult {
   passed: boolean;
   /** One line of context. Absent when the gate said nothing beyond pass or fail. */
   detail?: string;
+  /**
+   * What the gate actually objected to.
+   *
+   * A count is not enough to settle a disagreement. Dispatch w60 failed on
+   * "2 error(s), 0 warning(s) across 5 file(s)" and the same analyzer over the
+   * same files reported none a minute later; with only the count recorded
+   * there was no way to tell which of them was wrong, and the executor carried
+   * the blame by default. Absent when the gate passed or has nothing to name.
+   */
+  findings?: readonly GateFinding[];
 }
 
 /**
@@ -89,6 +110,12 @@ export interface DispatchOutcome {
   changedPaths: readonly string[];
   /** Changed paths no declared owned path covers (Requirement 2.5). */
   outOfScopePaths: readonly string[];
+  /**
+   * True when the declaration claimed the repository root, so scope was not
+   * actually checked. An empty `outOfScopePaths` alongside this means nothing
+   * was examined, not that nothing was written outside the declaration.
+   */
+  scopeUnchecked?: boolean;
   /** Names of the gates that did not pass. */
   failedGates: readonly string[];
 }
@@ -97,6 +124,8 @@ export interface DispatchOutcome {
 export interface ObservedEffect {
   changedPaths: readonly string[];
   outOfScopePaths: readonly string[];
+  /** See `DispatchOutcome.scopeUnchecked`. */
+  scopeUnchecked: boolean;
 }
 
 /**
@@ -127,6 +156,7 @@ export function observeEffect(
   return {
     changedPaths: [...changedPaths],
     outOfScopePaths: changedPaths.filter((path) => !ownsPath(ownedPaths, path)),
+    scopeUnchecked: claimsWholeRepository(ownedPaths),
   };
 }
 
@@ -157,6 +187,10 @@ export function classifyOutcome(input: OutcomeInput): DispatchOutcome {
     changedPaths: effect.changedPaths,
     outOfScopePaths: effect.outOfScopePaths,
     failedGates,
+    // Carried onto every outcome, because the reader of a record with no
+    // out-of-scope paths needs to know whether that means none were written or
+    // none could be detected.
+    ...(effect.scopeUnchecked ? { scopeUnchecked: true } : {}),
   };
 
   if (effect.outOfScopePaths.length > 0) {

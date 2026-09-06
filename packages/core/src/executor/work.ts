@@ -33,6 +33,8 @@ export interface DispatchWorkRequest
    * limit applies — callers that predate the cap keep their behaviour.
    */
   maxConcurrentDispatches?: number;
+  /** The chain of parent dispatch ids, if this is a nested dispatch. */
+  parentDispatchIds?: readonly string[];
 }
 
 export type DispatchWorkResult =
@@ -57,6 +59,7 @@ export async function dispatchWork(request: DispatchWorkRequest): Promise<Dispat
       taskKind: request.declaration.taskKind,
       ownedPaths: request.declaration.ownedPaths,
       ...(request.laneId === undefined ? {} : { laneId: request.laneId }),
+      ...(request.parentDispatchIds === undefined ? {} : { parentDispatchIds: request.parentDispatchIds }),
     },
     runtimes,
     request.maxConcurrentDispatches === undefined

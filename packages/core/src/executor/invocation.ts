@@ -36,6 +36,15 @@ export interface ExecutorInvocation {
   promptPath: string;
   /** The prompt itself, for a CLI that reads it from standard input. */
   prompt: string;
+  /**
+   * How long the dispatch allows this attempt, when it bounds it at all.
+   *
+   * A CLI with a wait of its own needs telling, or its default decides the
+   * run: every antigravity dispatch this repository made ended at five
+   * minutes and four seconds with "timeout waiting for response", against
+   * briefs written for an hour's work.
+   */
+  timeoutMs?: number;
 }
 
 /** One CLI's arguments and standard input for one attempt. */
@@ -76,6 +85,11 @@ const COMMON_RATE_LIMIT_PHRASES: readonly string[] = [
   'too many requests',
   'usage limit',
   'quota exceeded',
+  // Observed from `agy` on 2026-09-08: "Individual quota reached. Please
+  // upgrade your subscription to increase your limits. Resets in 25m25s."
+  // Matched nothing here, so two dispatches into an exhausted lane were
+  // recorded as ordinary failures and the lane was never marked.
+  'quota reached',
   '429',
 ];
 
@@ -83,9 +97,22 @@ const CLAUDE_CODE: AgentCommandSpec = {
   agentId: 'claude-code',
   program: 'claude',
   invocation:
-    'claude --model <model> --permission-mode bypassPermissions -p, with the prompt on stdin',
+    'claude --model <model> --permission-mode acceptEdits --permission-prompts none -p, with the prompt on stdin',
   build: ({ model, prompt }) => ({
-    args: ['--model', model, '--permission-mode', 'bypassPermissions', '-p'],
+    args: [
+      '--model',
+      model,
+      // `bypassPermissions` skips PreToolUse hooks entirely, which disables cyv's
+      // own gate inside the agents cyv spawns. Probed 2026-09-07: under
+      // `acceptEdits` the hook fires and a deny blocks the write; under
+      // `bypassPermissions` it never runs. `--permission-prompts none` keeps the
+      // session unattended, so nothing stalls waiting for an approval.
+      '--permission-mode',
+      'acceptEdits',
+      '--permission-prompts',
+      'none',
+      '-p',
+    ],
     stdin: prompt,
   }),
   detectsRateLimit: (observation) =>
@@ -159,23 +186,38 @@ function antigravityDirective(promptPath: string): string {
 }
 
 /**
- * `--print-timeout` is not passed, so this CLI's own default of five minutes
- * bounds the run. A dispatch whose work takes longer than that ends at the
- * default with whatever the executor had produced by then.
+ * The share of a dispatch's own deadline a CLI's internal wait is given.
+ *
+ * Below it, so the CLI reaches its own timeout and exits with whatever it
+ * produced, rather than being killed mid-write by the executor's deadline.
+ */
+const CLI_WAIT_SHARE = 0.9;
+
+/** A Go duration, which is what `agy --print-timeout` parses. */
+function goDuration(ms: number): string {
+  const seconds = Math.max(1, Math.round((ms * CLI_WAIT_SHARE) / 1000));
+  return `${seconds}s`;
+}
+
+/**
+ * `--print-timeout` defaults to five minutes, which bounded every dispatch
+ * this repository ran on this lane regardless of the deadline the dispatch
+ * declared. It is now derived from that deadline.
  */
 const ANTIGRAVITY: AgentCommandSpec = {
   agentId: 'antigravity',
   program: 'agy',
   invocation:
     'agy --model <model> --dangerously-skip-permissions --add-dir <repo root> ' +
-    '--print <directive naming the prompt file>',
-  build: ({ cwd, model, promptPath }) => ({
+    '[--print-timeout <90% of the dispatch deadline>] --print <directive naming the prompt file>',
+  build: ({ cwd, model, promptPath, timeoutMs }) => ({
     args: [
       '--model',
       model,
       '--dangerously-skip-permissions',
       '--add-dir',
       cwd,
+      ...(timeoutMs === undefined ? [] : ['--print-timeout', goDuration(timeoutMs)]),
       '--print',
       antigravityDirective(promptPath),
     ],

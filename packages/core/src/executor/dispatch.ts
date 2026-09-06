@@ -31,6 +31,17 @@ export interface DispatchDeclaration {
   expectsFileChanges: boolean;
   /** Names of the gates to run against the result (Requirement 4.1). */
   gates: readonly string[];
+  /**
+   * How long the dispatch was given, when it was bounded.
+   *
+   * Recorded because elapsed time means nothing without it: a card fifteen
+   * minutes into a forty-five minute deadline and one fifteen minutes into a
+   * sixteen-minute deadline read the same and mean the opposite. It is also
+   * what makes a run that ended early visible as one — eleven dispatches
+   * declared fifty minutes and ended at five, and nothing in the record said
+   * so.
+   */
+  deadlineMs?: number;
 }
 
 /** Which lane and model ran the dispatch (Requirements 4.1, 9.6, 6.1). */
@@ -147,6 +158,8 @@ export interface DispatchOpened {
   /** When that cyv process began, as an ISO 8601 string. */
   processStartedAt?: string;
   escalation?: Escalation;
+  /** The dispatch that spawned this one, if it is a nested dispatch. */
+  parentDispatchId?: string;
 }
 
 /** Written when a dispatch finishes, whatever the outcome. */
@@ -236,6 +249,8 @@ export interface DispatchRecord {
   pid?: number;
   /** When that cyv process began, as an ISO 8601 string. */
   processStartedAt?: string;
+  /** The dispatch that spawned this one, if it is a nested dispatch. */
+  parentDispatchId?: string;
   /** Absent while the dispatch is still in flight. */
   closed?: {
     closedAt: string;

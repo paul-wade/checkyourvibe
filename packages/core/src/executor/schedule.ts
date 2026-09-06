@@ -51,6 +51,8 @@ export interface InFlightDispatch {
   dispatchId: string;
   /** Its declared ownership set, for the overlap check (Requirement 4.3). */
   ownedPaths: readonly string[];
+  /** The chain of parent dispatch ids, if this is a nested dispatch. */
+  parentDispatchIds?: readonly string[];
 }
 
 /** A declared lane plus everything the scheduler knows about it right now. */
@@ -73,6 +75,8 @@ export interface ScheduleRequest {
    * lane, which the core never selects on its own (Requirement 1.5).
    */
   laneId?: string;
+  /** The chain of parent dispatch ids, if this is a nested dispatch. */
+  parentDispatchIds?: readonly string[];
 }
 
 export type SchedulingDecision =
@@ -181,6 +185,12 @@ export function laneIneligibility(
     };
   }
 
+  // The concurrency cap counts a nested dispatch exactly like any other. A lane
+  // with a cap of 1 running a dispatch that spawns a nested dispatch will refuse
+  // the child: the parent holds the slot, so the child sees the lane as full.
+  // This is deliberate. A nested dispatch that bypassed the cap or was excluded
+  // from the count would allow an unbounded tree of dispatches to occupy a lane,
+  // causing a fork bomb.
   if (runtime.inFlight.length >= lane.concurrencyCap) {
     return {
       reason: 'at-concurrency-cap',
@@ -204,6 +214,7 @@ export function ownershipConflicts(
   for (const runtime of runtimes) {
     for (const running of runtime.inFlight) {
       if (running.dispatchId === request.dispatchId) continue;
+      if (request.parentDispatchIds?.includes(running.dispatchId)) continue;
       const paths = overlappingPaths(request.ownedPaths, running.ownedPaths);
       if (paths.length > 0) {
         conflicts.push({ withDispatchId: running.dispatchId, laneId: runtime.lane.id, paths });

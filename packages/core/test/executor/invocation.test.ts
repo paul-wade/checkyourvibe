@@ -76,6 +76,19 @@ describe('the agent command mapping', () => {
       expect(spec.detectsRateLimit(observation({ stdout: 'HTTP 429' }))).toBe(true);
     }
   });
+
+  // Observed from `agy` on 2026-09-08. It matched none of the phrases, so two
+  // dispatches into an exhausted lane closed as ordinary failures and the lane
+  // was never marked as out of quota.
+  it('recognises a quota message that says "reached" rather than "exceeded"', () => {
+    const message =
+      'Error: Individual quota reached. Please upgrade your subscription to ' +
+      'increase your limits. Resets in 25m25s.';
+
+    for (const spec of AGENT_COMMANDS) {
+      expect(spec.detectsRateLimit(observation({ stderr: message }))).toBe(true);
+    }
+  });
 });
 
 describe("each agent's non-interactive invocation", () => {
@@ -88,6 +101,26 @@ describe("each agent's non-interactive invocation", () => {
     );
     expect(launch?.args).toContain('--dangerously-skip-permissions');
     expect(launch?.stdin).toBeUndefined();
+  });
+
+  // Every antigravity dispatch this repository ran ended at five minutes with
+  // "timeout waiting for response", whatever deadline the dispatch declared,
+  // because the CLI's own `--print-timeout` defaults to five minutes and was
+  // never passed.
+  it("bounds antigravity's own wait by the dispatch's deadline", () => {
+    const launch = agentCommandFor('antigravity')?.build({ ...invocation, timeoutMs: 3_000_000 });
+    const at = launch?.args.indexOf('--print-timeout') ?? -1;
+
+    expect(at).toBeGreaterThan(-1);
+    // Below the deadline, so the CLI reaches its own timeout and exits with
+    // what it has rather than being killed mid-write.
+    expect(launch?.args[at + 1]).toBe('2700s');
+  });
+
+  it('leaves antigravity to its own default when the dispatch names no deadline', () => {
+    const launch = agentCommandFor('antigravity')?.build(invocation);
+
+    expect(launch?.args).not.toContain('--print-timeout');
   });
 
   it('asks codex for one run that ends by itself, reading its prompt from stdin', () => {

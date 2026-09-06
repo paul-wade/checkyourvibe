@@ -71,6 +71,7 @@ export interface DispatchRunRequest {
   assignment: DispatchAssignment;
   /** Present on an attempt that followed another (Requirement 3.4). */
   escalation?: Escalation;
+  parentDispatchId?: string;
   command: ChildCommand;
   /** Paths snapshotted before and after. Defaults to `DEFAULT_OBSERVED_SCOPE`. */
   observedScope?: readonly string[];
@@ -86,12 +87,19 @@ export interface DispatchRunResult {
   closed: DispatchClosed;
   observation: ChildObservation;
   /**
-   * The diff of the two snapshots that the repository does not ignore. This is
-   * what ownership is judged against and what the gates are given.
+   * The raw diff of the two snapshots before any generated/authored split. This
+   * is every path the snapshots showed as changed, whether the repository
+   * ignores it or not, so a reader can see the whole observation before the
+   * judgement is applied.
+   */
+  diffPaths: readonly string[];
+  /**
+   * The diff paths the repository does not ignore. This is what ownership is
+   * judged against and what the gates are given.
    */
   changedPaths: readonly string[];
   /**
-   * Changed paths the repository ignores — build output and caches, usually
+   * Diff paths the repository ignores — build output and caches, usually
    * written by a gate rather than by the executor. Reported rather than
    * silently dropped: a dispatch writing into a build directory is worth
    * knowing about even though it is not an ownership violation.
@@ -148,6 +156,7 @@ export async function runDispatch(request: DispatchRunRequest): Promise<Dispatch
     declaration: request.declaration,
     assignment: request.assignment,
     ...(request.escalation === undefined ? {} : { escalation: request.escalation }),
+    ...(request.parentDispatchId === undefined ? {} : { parentDispatchId: request.parentDispatchId }),
   });
 
   const before = await takeSnapshot(request.repoRoot, observedScope, snapshotOptions);
@@ -158,7 +167,8 @@ export async function runDispatch(request: DispatchRunRequest): Promise<Dispatch
   const after = await takeSnapshot(request.repoRoot, observedScope, snapshotOptions);
   // The raw diff includes anything a gate generated. Ownership is a claim about
   // what the executor authored, so the two are separated before it is judged.
-  const split = await splitGeneratedPaths(request.repoRoot, diffSnapshots(before, after));
+  const diffPaths = diffSnapshots(before, after);
+  const split = await splitGeneratedPaths(request.repoRoot, diffPaths);
   const changedPaths = split.authored;
 
   const report = reportFromObservation(observation, request.detectRateLimit);
@@ -195,6 +205,7 @@ export async function runDispatch(request: DispatchRunRequest): Promise<Dispatch
     opened,
     closed,
     observation,
+    diffPaths,
     changedPaths,
     generatedPaths: split.generated,
     ...(split.undetermined === undefined ? {} : { generatedUndetermined: split.undetermined }),
@@ -221,6 +232,7 @@ export interface SelfDispatchOpenRequest {
   declaration: DispatchDeclaration;
   assignment: DispatchAssignment;
   escalation?: Escalation;
+  parentDispatchId?: string;
   observedScope?: readonly string[];
   snapshot?: SnapshotOptions;
   now?: () => Date;
@@ -247,6 +259,7 @@ export async function openSelfDispatch(
     declaration: request.declaration,
     assignment: request.assignment,
     ...(request.escalation === undefined ? {} : { escalation: request.escalation }),
+    ...(request.parentDispatchId === undefined ? {} : { parentDispatchId: request.parentDispatchId }),
   });
 
   const before = await takeSnapshot(request.repoRoot, observedScope, request.snapshot ?? {});
@@ -310,10 +323,8 @@ export async function closeSelfDispatch(
     persisted.observedScope,
     request.snapshot ?? {},
   );
-  const split = await splitGeneratedPaths(
-    request.repoRoot,
-    diffSnapshots(persisted.snapshot, after),
-  );
+  const diffPaths = diffSnapshots(persisted.snapshot, after);
+  const split = await splitGeneratedPaths(request.repoRoot, diffPaths);
   const changedPaths = split.authored;
 
   const observation: ChildObservation = {
@@ -363,6 +374,7 @@ export async function closeSelfDispatch(
     result: {
       closed,
       observation,
+      diffPaths,
       changedPaths,
       generatedPaths: split.generated,
       ...(split.undetermined === undefined ? {} : { generatedUndetermined: split.undetermined }),

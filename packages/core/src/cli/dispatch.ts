@@ -36,9 +36,10 @@ import { findProgram, launchArguments, type ProgramLauncher } from '../executor/
 import { executorPrompt } from '../executor/prompt.js';
 import { createGateRunner, CYV_CHECK_GATE, RUN_GATE_PREFIX } from '../executor/gates.js';
 import { dispatchWork, type DispatchWorkResult } from '../executor/work.js';
-import { dispatchLogPath, readDispatchLog } from '../executor/store.js';
+import { dispatchLogPath, readDispatchLog, closeDispatch } from '../executor/store.js';
 import { replayLaneRuntimes } from '../executor/replay.js';
 import { scheduleDispatch } from '../executor/schedule.js';
+import { ownsPath } from '../executor/ownership.js';
 import { DEFAULT_MAX_ATTEMPTS, type AttemptContext } from '../executor/escalate.js';
 import { AGENT_COMMANDS } from '../executor/invocation.js';
 import type { ChildCommand, ChildObservation } from '../executor/child.js';
@@ -76,6 +77,8 @@ interface ParsedDispatchArgs {
   self: boolean;
   /** Close a dispatch this session opened for itself (Requirement 2.3). */
   closeId?: string;
+  abandonId?: string;
+  abandonReason?: string;
 }
 
 function requireValue(argv: readonly string[], index: number, flag: string): string {
@@ -156,14 +159,28 @@ function parseArgs(argv: readonly string[]): ParsedDispatchArgs {
     } else if (arg === '--close') {
       i += 1;
       parsed.closeId = requireValue(argv, i, '--close');
+    } else if (arg === '--abandon') {
+      i += 1;
+      parsed.abandonId = requireValue(argv, i, '--abandon');
+    } else if (arg === '--reason') {
+      i += 1;
+      parsed.abandonReason = requireValue(argv, i, '--reason');
     } else {
       throw new Error(`Unknown flag "${arg}" for cyv dispatch. Run \`cyv dispatch --help\`.`);
     }
   }
 
+  if (parsed.closeId !== undefined && parsed.abandonId !== undefined) {
+    throw new Error('--close and --abandon cannot both be used.');
+  }
+
   if (parsed.closeId !== undefined) {
     // `--close` names a dispatch that already carries its own declaration in
     // the log, so the work is not restated here.
+    return parsed;
+  }
+  
+  if (parsed.abandonId !== undefined) {
     return parsed;
   }
 
@@ -348,7 +365,7 @@ function shouldShowOutput(closed: DispatchRunResult['closed']): boolean {
 }
 
 function describeAttempt(result: DispatchRunResult): string[] {
-  const { closed, opened, observation, changedPaths, generatedPaths, generatedUndetermined } = result;
+  const { closed, opened, observation, diffPaths, generatedPaths, generatedUndetermined } = result;
   const lines = [
     `  attempt ${opened.attempt} — dispatch ${opened.dispatchId}, model ${opened.assignment.model}`,
   ];
@@ -365,18 +382,18 @@ function describeAttempt(result: DispatchRunResult): string[] {
   lines.push(`    the executor reported ${closed.report.status} (${exit})`);
 
   lines.push(
-    changedPaths.length === 0
+    diffPaths.length === 0
       ? '    observed on disk: nothing changed'
-      : `    observed on disk: ${changedPaths.length} path(s) changed — ${changedPaths.join(', ')}`,
+      : `    observed on disk: ${diffPaths.length} path(s) changed — ${diffPaths.join(', ')}`,
   );
 
-  // Reported separately rather than dropped: a gate that compiles the project
-  // writes build output, which is not something the executor authored and not
-  // an ownership violation, but is still worth a reader seeing.
+  // Reported separately rather than dropped: a path classed as generated is
+  // excluded from the ownership judgement, but a reader must still be able to
+  // see that it was observed.
   if (generatedPaths.length > 0) {
     lines.push(
-      `    also touched ${generatedPaths.length} path(s) this repository ignores, ` +
-        `not judged as writes — ${generatedPaths.join(', ')}`,
+      `    ${generatedPaths.length} path(s) treated as generated and excluded from the judgement — ` +
+        generatedPaths.join(', '),
     );
   }
   if (generatedUndetermined !== undefined) {
@@ -564,7 +581,12 @@ function jsonResultFor(work: DispatchWorkResult, workId: string, logPath: string
         assignment: attempt.opened.assignment,
         escalation: attempt.opened.escalation,
         executorReport: attempt.closed.report,
+        diffPaths: attempt.diffPaths,
         changedPaths: attempt.changedPaths,
+        generatedPaths: attempt.generatedPaths,
+        ...(attempt.generatedUndetermined === undefined
+          ? {}
+          : { generatedUndetermined: attempt.generatedUndetermined }),
         gateResults: attempt.closed.gateResults,
         outcome: attempt.closed.outcome,
       })),
@@ -577,6 +599,22 @@ function jsonResultFor(work: DispatchWorkResult, workId: string, logPath: string
 }
 
 async function run(ctx: CommandContext): Promise<number> {
+  const parentDispatchId = ctx.env['CYV_DISPATCH_ID'];
+  const parentsRaw = ctx.env['CYV_DISPATCH_PARENTS'] ?? '';
+  const parentDispatchParents = parentsRaw === '' ? [] : parentsRaw.split(',');
+  if (parentDispatchParents.length >= 1) {
+    // A middle may dispatch a worker; a worker may dispatch nothing
+    // (0062 Requirement 1.3). The chain is printed so the refusal says which
+    // dispatches led here rather than only that one did.
+    const chain = [...parentDispatchParents, ...(parentDispatchId === undefined ? [] : [parentDispatchId])];
+    console.error(
+      'cyv dispatch: refused — a dispatch two levels deep would be a third tier, and two is the ' +
+        `design. The chain that led here: ${chain.join(' → ')}.`,
+    );
+    return 2;
+  }
+  const childParentChain = parentDispatchId ? [...parentDispatchParents, parentDispatchId] : [];
+
   if (ctx.argv.includes('--help') || ctx.argv.includes('-h')) {
     console.log(usage());
     return 0;
@@ -593,6 +631,24 @@ async function run(ctx: CommandContext): Promise<number> {
     return 2;
   }
 
+  if (ctx.env.CYV_DISPATCH_DECLARATION) {
+    const parsedPaths: unknown = JSON.parse(ctx.env.CYV_DISPATCH_DECLARATION);
+    const isStringArray = (val: unknown): val is string[] =>
+      Array.isArray(val) && val.every((item: unknown) => typeof item === 'string');
+
+    if (!isStringArray(parsedPaths)) {
+      console.error(`Refused: CYV_DISPATCH_DECLARATION is not a string array.`);
+      return 2;
+    }
+    const parentPaths: readonly string[] = parsedPaths;
+    // require import { ownsPath } from '../executor/ownership.js';
+    const hasUnowned = parsed.ownedPaths.find((path) => !ownsPath(parentPaths, path));
+    if (hasUnowned) {
+      console.error(`Refused: Nested dispatch may not widen ownership. Path "${hasUnowned}" is not within parent's declared paths.`);
+      return 2;
+    }
+  }
+
   const repoRoot = await findRepoRoot(ctx.cwd);
   const config = await loadConfig(repoRoot);
 
@@ -606,6 +662,10 @@ async function run(ctx: CommandContext): Promise<number> {
 
   if (parsed.closeId !== undefined) {
     return closeSelfExecuted(repoRoot, parsed.closeId, ctx.env, parsed.json);
+  }
+
+  if (parsed.abandonId !== undefined) {
+    return abandonDispatchCmd(repoRoot, parsed.abandonId, parsed.abandonReason, parsed.json);
   }
 
   if (lanes.length === 0) {
@@ -648,6 +708,7 @@ async function run(ctx: CommandContext): Promise<number> {
     ownedPaths: parsed.ownedPaths,
     expectsFileChanges: parsed.expectsFileChanges,
     gates: parsed.gates,
+    ...(parsed.timeoutMs === undefined ? {} : { deadlineMs: parsed.timeoutMs }),
   };
   const workId = parsed.workId ?? generateWorkId(new Date());
 
@@ -691,6 +752,7 @@ async function run(ctx: CommandContext): Promise<number> {
         declaredHeadroom: preview.declaredHeadroom,
         observedScope: parsed.observedScope,
         json: parsed.json,
+        ...(parentDispatchId === undefined ? {} : { parentDispatchId }),
       });
     }
   }
@@ -730,6 +792,9 @@ async function run(ctx: CommandContext): Promise<number> {
       model: context.model,
       promptPath,
       prompt,
+      // A CLI with a wait of its own decides the run unless it is told the
+      // dispatch's deadline.
+      ...(parsed.timeoutMs === undefined ? {} : { timeoutMs: parsed.timeoutMs }),
     });
     return {
       command: executor.launcher.command,
@@ -737,6 +802,9 @@ async function run(ctx: CommandContext): Promise<number> {
       windowsVerbatimArguments: launchArguments(executor.launcher, launch.args).windowsVerbatimArguments,
       cwd: repoRoot,
       env: ctx.env,
+      declaration: declaration.ownedPaths,
+      dispatchId: context.dispatchId,
+      parentDispatchIds: childParentChain,
       ...(launch.stdin === undefined ? {} : { stdin: launch.stdin }),
       ...(parsed.timeoutMs === undefined ? {} : { timeoutMs: parsed.timeoutMs }),
     };
@@ -755,6 +823,7 @@ async function run(ctx: CommandContext): Promise<number> {
     lanes: dispatchLanes,
     declaration,
     ...(parsed.laneId === undefined ? {} : { laneId: parsed.laneId }),
+    ...(childParentChain.length === 0 ? {} : { parentDispatchIds: childParentChain }),
     commandFor,
     detectRateLimit,
     gateRunner: createGateRunner(ctx.env),
@@ -843,6 +912,7 @@ interface SelfOpenRequest {
   declaredHeadroom: number;
   observedScope: readonly string[];
   json: boolean;
+  parentDispatchId?: string;
 }
 
 /**
@@ -878,6 +948,7 @@ async function openForSelfExecution(
       orchestrator: request.lane.orchestrator,
       declaredHeadroomAtSchedule: request.declaredHeadroom,
     },
+    ...(request.parentDispatchId === undefined ? {} : { parentDispatchId: request.parentDispatchId }),
     ...(request.observedScope.length === 0 ? {} : { observedScope: request.observedScope }),
   });
 
@@ -964,7 +1035,12 @@ async function closeSelfExecuted(
           dispatchId,
           closed: true,
           outcome,
+          diffPaths: result.result.diffPaths,
           changedPaths: result.result.changedPaths,
+          generatedPaths: result.result.generatedPaths,
+          ...(result.result.generatedUndetermined === undefined
+            ? {}
+            : { generatedUndetermined: result.result.generatedUndetermined }),
           gateResults: result.result.closed.gateResults,
           logPath: dispatchLogPath(repoRoot),
         },
@@ -978,8 +1054,17 @@ async function closeSelfExecuted(
   const lines = [
     `\n  dispatch ${dispatchId} — closed`,
     `  outcome ${outcome.kind}`,
-    `  ${result.result.changedPaths.length} file(s) changed within the observed scope`,
+    `  ${result.result.diffPaths.length} file(s) changed within the observed scope`,
   ];
+  if (result.result.generatedPaths.length > 0) {
+    lines.push(
+      `  ${result.result.generatedPaths.length} path(s) treated as generated and excluded from the judgement — ` +
+        result.result.generatedPaths.join(', '),
+    );
+  }
+  if (result.result.generatedUndetermined !== undefined) {
+    lines.push(`  generated-path split undetermined: ${result.result.generatedUndetermined}`);
+  }
   for (const gate of result.result.closed.gateResults) {
     lines.push(`    gate ${gate.gate}: ${gate.passed ? 'passed' : `failed — ${gate.detail ?? 'no detail'}`}`);
   }
@@ -990,4 +1075,52 @@ async function closeSelfExecuted(
   lines.push(...(await notesArrivedLines(repoRoot)));
   console.log(lines.join('\n'));
   return outcome.kind === 'succeeded' ? 0 : 1;
+}
+
+async function abandonDispatchCmd(
+  repoRoot: string,
+  dispatchId: string,
+  reason: string | undefined,
+  json: boolean,
+): Promise<number> {
+  const { records } = await readDispatchLog(repoRoot);
+  const openedRecord = records.find(
+    (record) => record.dispatchId === dispatchId,
+  );
+
+  if (openedRecord === undefined) {
+    console.error(`Unknown dispatch id "${dispatchId}".`);
+    return 2;
+  }
+
+  if (openedRecord.closed !== undefined) {
+    console.error(`Dispatch "${dispatchId}" is already closed.`);
+    return 2;
+  }
+
+  const reportStatus = 'did-not-complete';
+  const summary = `abandoned${reason ? `: ${reason}` : ''}`;
+
+  const closed = await closeDispatch(repoRoot, {
+    dispatchId,
+    closedAt: new Date().toISOString(),
+    report: { status: reportStatus, rateLimited: false },
+    gateResults: [],
+    outcome: {
+      kind: reportStatus,
+      summary,
+      changedPaths: [],
+      outOfScopePaths: [],
+      failedGates: [],
+    },
+  });
+
+  if (json) {
+    console.log(JSON.stringify({ ...closed, logPath: dispatchLogPath(repoRoot) }, null, 2));
+    return 1;
+  }
+
+  console.log(`\n  dispatch ${dispatchId} — abandoned`);
+  console.log(`  recorded in ${dispatchLogPath(repoRoot)}\n`);
+  return 1;
 }

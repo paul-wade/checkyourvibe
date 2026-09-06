@@ -17,7 +17,7 @@
  * rate-limit wording belongs to that vendor's plugin, so a caller supplies a
  * detector or the field stays false.
  */
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 
 import type { ExecutorOutput, ExecutorReport } from './outcome.js';
 
@@ -27,6 +27,12 @@ export interface ChildCommand {
   /** Defaults to the repository root the dispatch runs against. */
   cwd?: string;
   env?: NodeJS.ProcessEnv;
+  /** The id of the dispatch this child is executing. */
+  dispatchId?: string;
+  /** The chain of parent dispatches, if this is a nested dispatch. */
+  parentDispatchIds?: readonly string[];
+  /** Repo-relative paths this dispatch is permitted to write. Passed to the hook via environment. */
+  declaration?: readonly string[];
   /**
    * Written to the child's standard input, which is then closed. Absent leaves
    * standard input closed from the start.
@@ -71,6 +77,35 @@ function toBuffer(chunk: Buffer | string): Buffer {
 }
 
 /**
+ * How long a killed child is given to end before the run is recorded without
+ * waiting for it. A dispatch that never closes holds its declared paths against
+ * every later dispatch and shows on the board as running forever, so settling
+ * on incomplete output is strictly better than not settling.
+ */
+const KILL_GRACE_MS = 10_000;
+
+/**
+ * End a timed-out child, and its descendants where the platform needs telling.
+ *
+ * `child.kill()` signals only the process spawned here. An executor CLI
+ * installed as a batch shim launches the real agent as a descendant, which
+ * survives the signal and keeps the inherited pipes open — so `close` never
+ * fires and the promise below never settles.
+ */
+function endProcessTree(child: ChildProcess): void {
+  const pid = child.pid;
+  if (process.platform !== 'win32' || pid === undefined) {
+    child.kill();
+    return;
+  }
+  const killer = spawn('taskkill', ['/T', '/F', '/PID', String(pid)], { stdio: 'ignore' });
+  killer.on('error', () => {
+    child.kill();
+  });
+  killer.unref();
+}
+
+/**
  * Spawn `command` and resolve once it has ended, however it ended. A process
  * that cannot be started resolves with `spawnError` rather than rejecting, so
  * the dispatch that asked for it still closes with a record.
@@ -82,10 +117,19 @@ export function runChild(command: ChildCommand): Promise<ChildObservation> {
     let timedOut = false;
     let settled = false;
     let timer: NodeJS.Timeout | undefined;
+    let graceTimer: NodeJS.Timeout | undefined;
+
+    const env = command.env ?? process.env;
+    const childEnv = command.declaration || command.dispatchId ? {
+      ...env,
+      ...(command.declaration ? { CYV_DISPATCH_DECLARATION: JSON.stringify(command.declaration) } : {}),
+      ...(command.dispatchId ? { CYV_DISPATCH_ID: command.dispatchId } : {}),
+      ...(command.parentDispatchIds && command.parentDispatchIds.length > 0 ? { CYV_DISPATCH_PARENTS: command.parentDispatchIds.join(',') } : {}),
+    } : env;
 
     const child = spawn(command.command, [...(command.args ?? [])], {
       cwd: command.cwd,
-      env: command.env,
+      env: childEnv,
       stdio: [command.stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
       ...(command.windowsVerbatimArguments === true ? { windowsVerbatimArguments: true } : {}),
     });
@@ -94,6 +138,7 @@ export function runChild(command: ChildCommand): Promise<ChildObservation> {
       if (settled) return;
       settled = true;
       if (timer !== undefined) clearTimeout(timer);
+      if (graceTimer !== undefined) clearTimeout(graceTimer);
       settle({
         ...partial,
         timedOut,
@@ -105,7 +150,16 @@ export function runChild(command: ChildCommand): Promise<ChildObservation> {
     if (command.timeoutMs !== undefined) {
       timer = setTimeout(() => {
         timedOut = true;
-        child.kill();
+        endProcessTree(child);
+        // Killing is a request, not a guarantee. Observed 2026-09-07: a
+        // dispatch with a fifty-minute timeout was still open at sixty, its
+        // declared paths held and its card still reading "running". Whatever
+        // holds the pipes open, the run is over as far as this layer is
+        // concerned, and it must be recorded as such.
+        graceTimer = setTimeout(() => {
+          finish({});
+        }, KILL_GRACE_MS);
+        graceTimer.unref();
       }, command.timeoutMs);
     }
 

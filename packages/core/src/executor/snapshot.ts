@@ -1,22 +1,28 @@
 /**
  * Reading the file system before and after a dispatch (spec 0011 Requirement
- * 2.6).
+ * 2.6; amended by spec 0055 to ask git which files exist before hashing them).
  *
  * `diffSnapshots` in `outcome.ts` compares two maps of repo-relative path to
  * content digest and returns every path that differs. This produces one of
- * those maps by walking a declared scope on disk, so the changed-file set a
- * dispatch is judged on is read from the repository rather than from anything
- * the executor said about itself.
+ * those maps by asking git for the candidate path list and then hashing only
+ * those files, so the cost is proportional to what git tracks rather than to
+ * the size of the build and dependency tree.
  *
- * Two properties of the walk:
+ * When git cannot be asked — the directory is not a repository, git is absent,
+ * or the command fails — the walk falls back to the prior full-directory
+ * traversal and writes a warning to stderr so the fallback is visible rather
+ * than silent.
+ *
+ * Two properties of the snapshot:
  *
  * - A symbolic link is digested from the target text `readlink` returns and is
  *   never followed. A repointed link is therefore still observed as a change,
  *   and the traversal cannot reach a file outside the paths the scope names.
- * - Only the scope it is given is read. The scope is the caller's declaration,
- *   so the cost of a snapshot is proportional to the paths a dispatch touches
- *   rather than to the size of the repository.
+ * - Every path in the git candidate set is observed, so a write to any path
+ *   in that set — inside or outside the declared ownership — is still visible.
+ *   Narrowing which files are *hashed* does not narrow which writes are *judged*.
  */
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, readdir, readFile, readlink, rm, writeFile } from 'node:fs/promises';
 import type { Dirent, Stats } from 'node:fs';
@@ -29,7 +35,8 @@ import { normalizeOwnedPath } from './ownership.js';
 export type Snapshot = ReadonlyMap<string, string>;
 
 /**
- * Directory names skipped wherever they appear beneath a scope root.
+ * Directory names skipped wherever they appear beneath a scope root when the
+ * git-path-list path is unavailable and the full-walk fallback is in use.
  *
  * `.git` and `node_modules` hold state no dispatch declares ownership of and
  * would make the walk's cost unbounded. `.cyv-review` holds the dispatch log
@@ -163,9 +170,160 @@ async function walkScopeEntry(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Git-based path listing (spec 0055)
+// ---------------------------------------------------------------------------
+
+/**
+ * What `runGitLsFiles` produced, and whether it succeeded.
+ *
+ * Mirrors the shape used by `runCheckIgnore` in `ignored.ts` so the two
+ * git-invocation patterns stay consistent.
+ */
+interface GitLsFilesRun {
+  stdout: string;
+  /** Present when the listing could not be obtained, naming what went wrong. */
+  failure?: string;
+}
+
+/**
+ * Run `git ls-files -z --cached --others --exclude-standard` and return its
+ * NUL-delimited output.
+ *
+ * `--cached` lists tracked files; `--others --exclude-standard` adds untracked
+ * files that are not ignored. The result is the candidate set spec 0055
+ * requires: tracked + untracked-but-not-ignored, nothing else.
+ *
+ * `spawn` rather than `execFile` for consistency with `ignored.ts`; no paths
+ * go on the command line, so a filename containing a shell metacharacter cannot
+ * reach the shell.
+ */
+function runGitLsFiles(repoRoot: string): Promise<GitLsFilesRun> {
+  return new Promise<GitLsFilesRun>((resolvePromise) => {
+    const child = spawn('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+      cwd: repoRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+    });
+
+    child.on('error', (err: Error) => {
+      resolvePromise({ stdout: '', failure: err.message });
+    });
+    child.on('close', (code: number | null) => {
+      if (code === 0) {
+        resolvePromise({ stdout });
+      } else {
+        const reason =
+          stderr.trim().length > 0 ? stderr.trim() : `git exited with ${String(code)}`;
+        resolvePromise({ stdout: '', failure: reason });
+      }
+    });
+  });
+}
+
+/**
+ * Obtain the set of candidate paths from git: tracked files plus untracked
+ * files that are not ignored. Returns `undefined` when git cannot be asked,
+ * in which case the caller falls back to a full directory walk.
+ *
+ * Paths are returned as platform-native relative paths (separator converted)
+ * so that `join(repoRoot, path)` works on every platform.
+ */
+async function gitCandidatePaths(repoRoot: string): Promise<Set<string> | undefined> {
+  const run = await runGitLsFiles(repoRoot);
+  if (run.failure !== undefined) return undefined;
+
+  const paths = new Set<string>();
+  for (const entry of run.stdout.split('\0')) {
+    if (entry.length > 0) {
+      // git outputs paths with forward slashes; convert to the local
+      // separator so join(repoRoot, entry) works on every platform.
+      paths.add(entry.split('/').join(sep));
+    }
+  }
+  return paths;
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot from git-reported paths
+// ---------------------------------------------------------------------------
+
+/**
+ * Hash only the paths git reported that fall within the given scope, keyed by
+ * repo-relative path with forward slashes.
+ *
+ * A path that resolves outside `root` is skipped (same guard as the full walk).
+ * A path that is a symlink is digested from its target text, preserving the
+ * behaviour of the full walk.
+ */
+async function takeSnapshotFromPaths(
+  root: string,
+  gitPaths: Set<string>,
+  scope: readonly string[],
+): Promise<Map<string, string>> {
+  // Resolve scope entries to absolute paths for filtering.
+  const scopeRoots: string[] = [];
+  for (const scopePath of scope) {
+    const normalized = normalizeOwnedPath(scopePath);
+    const absolute = normalized === '' ? root : resolve(root, normalized);
+    if (isWithinRoot(root, absolute)) scopeRoots.push(absolute);
+  }
+
+  const into = new Map<string, string>();
+
+  for (const rel of gitPaths) {
+    const absolute = join(root, rel);
+
+    // Skip anything that somehow resolves outside the repository root.
+    if (!isWithinRoot(root, absolute)) continue;
+
+    // Skip paths outside every scope root.
+    const inScope = scopeRoots.some((scopeRoot) => isWithinRoot(scopeRoot, absolute));
+    if (!inScope) continue;
+
+    const info = await lstatOrMissing(absolute);
+    if (info === undefined) continue;
+
+    if (info.isSymbolicLink()) {
+      await recordEntry(root, absolute, true, into);
+    } else if (info.isFile()) {
+      await recordEntry(root, absolute, false, into);
+    }
+    // Directories in the listing are skipped; git lists files within them.
+  }
+
+  return into;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
  * Digest every file and symbolic link under `scope`, keyed by repo-relative
  * path.
+ *
+ * The candidate path list is obtained from git (tracked files + untracked but
+ * not ignored files) so that ignored paths — build output, dependency trees —
+ * are neither read nor reported. The observation remains whole-repository in
+ * the sense that matters: any write to a path in that candidate set, inside
+ * or outside the declared ownership, is still visible.
+ *
+ * When git cannot be asked the function falls back to a full directory walk of
+ * `scope` and writes a warning to stderr so the fallback is visible rather
+ * than silent. A fallback that silently observed nothing would make every
+ * dispatch appear to have changed no files, which is a catastrophic silent
+ * failure.
  *
  * A scope entry that does not exist contributes nothing, so a file the dispatch
  * creates is absent from the before-snapshot and present in the after-snapshot,
@@ -178,6 +336,22 @@ export async function takeSnapshot(
   options: SnapshotOptions = {},
 ): Promise<Map<string, string>> {
   const root = resolve(repoRoot);
+  const gitPaths = await gitCandidatePaths(root);
+
+  if (gitPaths !== undefined) {
+    return takeSnapshotFromPaths(root, gitPaths, scope);
+  }
+
+  // Git is unavailable or the command failed. Fall back to the full walk so
+  // that the snapshot still observes the working tree rather than silently
+  // seeing nothing — a silent empty snapshot would make every dispatch appear
+  // to have changed no files.
+  process.stderr.write(
+    '[cyv] snapshot: git could not be asked for the file list; ' +
+      'falling back to a full directory walk. ' +
+      'This is slower but correct.\n',
+  );
+
   const excluded = options.excludedDirectories ?? DEFAULT_EXCLUDED_DIRECTORIES;
   const into = new Map<string, string>();
   for (const scopePath of scope) {

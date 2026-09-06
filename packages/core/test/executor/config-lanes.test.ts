@@ -7,7 +7,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILENAME, configuredLanes, loadConfig } from '../../src/config/index.js';
-import { scheduleDispatch, laneRejections, type LaneRuntime } from '../../src/executor/schedule.js';
+import { scheduleDispatch, laneRejections, type LaneRuntime, type ScheduleRequest } from '../../src/executor/schedule.js';
 import { readExecutorView } from '../../src/dashboard/executor-view.js';
 import { openDispatch } from '../../src/executor/store.js';
 import type { LaneDeclaration } from '../../src/executor/lane.js';
@@ -83,7 +83,7 @@ describe('configured lanes reaching the scheduler', () => {
     const repo = await makeRepo();
     try {
       const lanes = await declaredLanes(repo);
-      const request = {
+      const request: ScheduleRequest = {
         dispatchId: 'd1',
         taskKind: 'mechanical-transformation',
         ownedPaths: declaration().ownedPaths,

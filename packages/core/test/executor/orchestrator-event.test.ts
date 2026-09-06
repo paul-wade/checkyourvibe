@@ -152,7 +152,7 @@ describe('recording and folding the self-report (spec 0036 Requirements 3.2, 3.4
       `${JSON.stringify({ event: 'heartbeat', schemaVersion: 1, at: '2026-09-01T10:00:00.000Z' })}\n`,
       'utf-8',
     );
-    const stats = { unparseableLines: 0 };
+    const stats = { unparseableLines: 0, unparseableLineNumbers: [] };
     const log = await readDispatchLog(repo, stats);
     expect(stats.unparseableLines).toBe(1);
     expect(log).not.toHaveProperty('orchestrator');

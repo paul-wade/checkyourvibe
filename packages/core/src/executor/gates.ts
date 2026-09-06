@@ -22,6 +22,8 @@
  * A gate that names neither form fails with a detail saying so, because a gate
  * the harness cannot run has not passed.
  */
+import { relative, sep } from 'node:path';
+
 import { runChild, type ChildObservation } from './child.js';
 import { findProgram, launchArguments } from './program.js';
 import { runCheck } from '../run/check.js';
@@ -30,6 +32,9 @@ import type { GateContext, GateRunner } from './run.js';
 
 /** The gate that runs this repository's own analyzers. */
 export const CYV_CHECK_GATE = 'cyv-check';
+
+/** How many of a gate's objections the record keeps. */
+const MAX_RECORDED_FINDINGS = 20;
 
 /** The prefix that makes a gate an arbitrary command. */
 export const RUN_GATE_PREFIX = 'run:';
@@ -101,7 +106,25 @@ async function runCyvCheck(context: GateContext, gate: string): Promise<GateResu
     `${errors} error(s), ${warnings} warning(s) across ${report.filesChecked} file(s) ` +
     'the dispatch changed';
 
-  return { gate, passed: errors === 0, detail };
+  // The violations were computed and thrown away, so a failure could only ever
+  // be counted, never read. Capped: a record is a record, not a report, and a
+  // dispatch that fails on hundreds of findings is legible from the first few.
+  const findings = report.violations
+    .filter((violation) => violation.severity === 'error')
+    .slice(0, MAX_RECORDED_FINDINGS)
+    .map((violation) => ({
+      // Analyzers report absolute paths; a record that outlives this machine
+      // wants the repo-relative one.
+      path: relative(context.repoRoot, violation.file).split(sep).join('/'),
+      line: violation.line,
+      column: violation.column,
+      ruleId: violation.ruleId,
+      message: violation.message,
+    }));
+
+  return findings.length === 0
+    ? { gate, passed: errors === 0, detail }
+    : { gate, passed: errors === 0, detail, findings };
 }
 
 async function runCommandGate(

@@ -363,6 +363,25 @@ describe('runDispatch against a real child process', () => {
     const report = records[0]?.closed?.report;
     expect(report?.output).toEqual({ stderr: 'error text', stdout: 'output text' });
   });
+
+  it('observes every file a dispatch creates, carrying the raw diff alongside the authored set', async () => {
+    await seed(repo, 'src/a.ts', 'before');
+
+    const result = await runDispatch({
+      repoRoot: repo,
+      dispatchId: 'd1',
+      workId: 'w1',
+      attempt: 1,
+      declaration: declaration({ ownedPaths: ['src/a.ts', 'src/b.ts'] }),
+      assignment,
+      command: nodeScript(writes('src/a.ts', 'after') + writes('src/b.ts', 'new')),
+      gateRunner: passes,
+    });
+
+    expect(result.diffPaths).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(result.changedPaths).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(result.closed.outcome.kind).toBe('succeeded');
+  });
 });
 
 describe('runChild', () => {

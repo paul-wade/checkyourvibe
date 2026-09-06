@@ -209,7 +209,15 @@ export function parseDeclaration(value: unknown): DispatchDeclaration | undefine
   ) {
     return undefined;
   }
-  return { task, taskKind: value.taskKind, ownedPaths, expectsFileChanges, gates };
+  const deadlineMs = asNumber(value.deadlineMs);
+  return {
+    task,
+    taskKind: value.taskKind,
+    ownedPaths,
+    expectsFileChanges,
+    gates,
+    ...(deadlineMs === undefined ? {} : { deadlineMs }),
+  };
 }
 
 export function parseAssignment(value: unknown): DispatchAssignment | undefined {
@@ -382,6 +390,7 @@ function parseOpened(value: Record<string, unknown>): DispatchOpened | undefined
     escalation = parseEscalation(value.escalation);
     if (escalation === undefined) return undefined;
   }
+  const parentDispatchId = asString(value.parentDispatchId);
   return {
     event: 'opened',
     schemaVersion,
@@ -395,6 +404,7 @@ function parseOpened(value: Record<string, unknown>): DispatchOpened | undefined
     ...(liveness.pid === undefined ? {} : { pid: liveness.pid }),
     ...(liveness.processStartedAt === undefined ? {} : { processStartedAt: liveness.processStartedAt }),
     ...(escalation === undefined ? {} : { escalation }),
+    ...(parentDispatchId === undefined ? {} : { parentDispatchId }),
   };
 }
 

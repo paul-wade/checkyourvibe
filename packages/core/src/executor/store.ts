@@ -69,6 +69,7 @@ export interface OpenDispatchInput {
   declaration: DispatchDeclaration;
   assignment: DispatchAssignment;
   escalation?: Escalation;
+  parentDispatchId?: string;
 }
 
 /** Build and append the `opened` entry for a scheduled dispatch. */
@@ -87,6 +88,7 @@ export async function openDispatch(
     declaration: input.declaration,
     assignment: input.assignment,
     ...(input.escalation === undefined ? {} : { escalation: input.escalation }),
+    ...(input.parentDispatchId === undefined ? {} : { parentDispatchId: input.parentDispatchId }),
     ...(host === undefined ? {} : { host }),
     ...(pid === undefined ? {} : { pid }),
     ...(processStartedAt === undefined ? {} : { processStartedAt }),
@@ -208,6 +210,8 @@ export async function acknowledgeItem(
 export interface ReadDispatchStats {
   /** Lines in the log that were not valid dispatch entries. */
   unparseableLines: number;
+  /** The 1-indexed line numbers of the unparseable lines. */
+  unparseableLineNumbers: number[];
 }
 
 /**
@@ -227,7 +231,13 @@ export async function readDispatchEntries(
 
   const entries: DispatchEntry[] = [];
   let unparseableLines = 0;
-  for (const line of raw.split('\n')) {
+  const unparseableLineNumbers: number[] = [];
+  
+  const lines = raw.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === undefined) continue;
+    
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
 
@@ -236,12 +246,14 @@ export async function readDispatchEntries(
       parsed = JSON.parse(trimmed);
     } catch {
       unparseableLines += 1;
+      unparseableLineNumbers.push(i + 1);
       continue;
     }
 
     const maybe = parseDispatchEntry(parsed);
     if (maybe === undefined) {
       unparseableLines += 1;
+      unparseableLineNumbers.push(i + 1);
       continue;
     }
     entries.push(maybe);
@@ -249,6 +261,7 @@ export async function readDispatchEntries(
 
   if (stats !== undefined) {
     stats.unparseableLines = unparseableLines;
+    stats.unparseableLineNumbers = unparseableLineNumbers;
   }
   return entries;
 }
@@ -303,6 +316,7 @@ export function foldDispatchEntries(entries: readonly DispatchEntry[]): Dispatch
         declaration: entry.declaration,
         assignment: entry.assignment,
         ...(entry.escalation === undefined ? {} : { escalation: entry.escalation }),
+        ...(entry.parentDispatchId === undefined ? {} : { parentDispatchId: entry.parentDispatchId }),
         ...(entry.host === undefined ? {} : { host: entry.host }),
         ...(entry.pid === undefined ? {} : { pid: entry.pid }),
         ...(entry.processStartedAt === undefined ? {} : { processStartedAt: entry.processStartedAt }),

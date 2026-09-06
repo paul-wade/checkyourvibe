@@ -86,6 +86,28 @@ describe('out-of-scope writes (Requirement 2.5)', () => {
     expect(needsHumanAttention(outcome)).toBe(true);
   });
 
+  // A dispatch may declare the repository root, and then no write can ever be
+  // out of scope. The empty `outOfScopePaths` that results means "nothing was
+  // checked", not "nothing was found", and a record where those read alike
+  // counts an unchecked dispatch as a clean one.
+  it('marks scope as unchecked when the declaration claims the whole repository', () => {
+    const outcome = classifyOutcome(
+      input({ ownedPaths: ['.'], changedPaths: ['src/a.ts', 'anywhere/else.ts'] }),
+    );
+
+    expect(outcome.outOfScopePaths).toEqual([]);
+    expect(outcome.scopeUnchecked).toBe(true);
+  });
+
+  it('leaves scope marked as checked when the declaration names real paths', () => {
+    const outcome = classifyOutcome(
+      input({ ownedPaths: ['src/a.ts'], changedPaths: ['src/a.ts'] }),
+    );
+
+    expect(outcome.outOfScopePaths).toEqual([]);
+    expect(outcome.scopeUnchecked).toBeUndefined();
+  });
+
   it('accepts a write beneath a declared directory as in scope', () => {
     const outcome = classifyOutcome(
       input({ ownedPaths: ['src/api'], changedPaths: ['src/api/handler.ts'] }),

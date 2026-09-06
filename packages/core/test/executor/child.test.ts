@@ -52,6 +52,34 @@ function observation(
   return { stdout, stderr, timedOut: false, ...extras };
 }
 
+describe('a timed-out child always settles', () => {
+  // A dispatch that never closes holds its declared paths against every later
+  // dispatch and shows on the board as running forever. Observed 2026-09-07: a
+  // fifty-minute timeout fired and the dispatch was still open at sixty.
+  it('records the run when the timeout elapses, without waiting for a process that will not end', async () => {
+    const observation = await runChild({
+      command: process.execPath,
+      // Holds its handles open and never exits on its own.
+      args: ['-e', 'setInterval(() => {}, 1000); process.stdout.write("started");'],
+      timeoutMs: 300,
+    });
+
+    expect(observation.timedOut).toBe(true);
+    expect(observation.stdout).toContain('started');
+  }, 30_000);
+
+  it('leaves timedOut false for a child that ends before its timeout', async () => {
+    const observation = await runChild({
+      command: process.execPath,
+      args: ['-e', 'process.stdout.write("done");'],
+      timeoutMs: 30_000,
+    });
+
+    expect(observation.timedOut).toBe(false);
+    expect(observation.stdout).toBe('done');
+  }, 30_000);
+});
+
 describe('captured output', () => {
   it('carries stdout and stderr the child wrote', () => {
     const report = reportFromObservation(observation('out text', 'err text'));

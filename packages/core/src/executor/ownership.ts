@@ -49,6 +49,20 @@ export function ownsPath(owned: readonly string[], path: string): boolean {
 }
 
 /**
+ * True when a declaration claims the repository root, so every path is in
+ * scope and no write can ever be out of it.
+ *
+ * A dispatch may legitimately need this, but the resulting empty
+ * `outOfScopePaths` then means "nothing was checked" rather than "nothing was
+ * found", and the two must not read alike. This is the same distinction the
+ * hook draws between a file it checked and found clean and a file no analyzer
+ * claimed.
+ */
+export function claimsWholeRepository(owned: readonly string[]): boolean {
+  return owned.some((entry) => normalizeOwnedPath(entry) === '');
+}
+
+/**
  * Every pair of paths, one from each declaration, that overlap. Returned as the
  * left-hand path so a refusal can name the paths that collided (Requirement
  * 4.3). Sorted and de-duplicated so the same collision always reads the same.
@@ -66,4 +80,31 @@ export function overlappingPaths(
     }
   }
   return [...found].sort();
+}
+
+/**
+ * The declared path sharing the longest prefix with a target, so a refusal can
+ * show an agent that meant to write inside its scope what it missed by
+ * (spec 0063 Requirement 2.2).
+ */
+export function nearestDeclaredPath(owned: readonly string[], path: string): string | undefined {
+  const target = normalizeOwnedPath(path);
+
+  let best: string | undefined;
+  let bestShared = -1;
+
+  for (const entry of owned) {
+    const candidate = normalizeOwnedPath(entry);
+    let shared = 0;
+    while (shared < target.length && shared < candidate.length) {
+      if (target.charAt(shared) !== candidate.charAt(shared)) break;
+      shared += 1;
+    }
+    if (shared > bestShared) {
+      bestShared = shared;
+      best = entry;
+    }
+  }
+
+  return best;
 }

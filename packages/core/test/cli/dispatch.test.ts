@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { command as dispatchCommand } from '../../src/cli/dispatch.js';
-import { dispatchLogPath } from '../../src/executor/store.js';
+import { dispatchLogPath, readDispatchLog } from '../../src/executor/store.js';
 import type { CommandContext } from '../../src/cli/types.js';
 import type { ExecutorConfig } from '../../src/config/types.js';
 
@@ -38,14 +38,15 @@ function capture(): Captured {
  * A lane per agent id, each offering a two-model ordering for mechanical
  * transformation so the weakest-first rule has a distinguishable last entry.
  */
-function executorConfig(lanes: readonly { id: string; agentId: string; cap: number }[]): ExecutorConfig {
+function executorConfig(lanes: readonly { id: string; agentId: string; cap: number; orchestrator?: boolean; acceptsDispatch?: boolean }[]): ExecutorConfig {
   return {
     lanes: lanes.map((lane) => ({
       id: lane.id,
       agentId: lane.agentId,
       concurrencyCap: lane.cap,
       billing: { kind: 'subscription', permitsBilledOverage: false },
-      orchestrator: false,
+      orchestrator: lane.orchestrator ?? false,
+      ...(lane.acceptsDispatch !== undefined ? { acceptsDispatch: lane.acceptsDispatch } : {}),
       models: [{ kind: 'mechanical-transformation', ordering: ['strong-model', 'weak-model'] }],
     })),
   };
@@ -83,7 +84,11 @@ describe('cyv dispatch', () => {
   });
 
   function context(argv: string[]): CommandContext {
-    return { cwd: repo, argv, env: process.env };
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.CYV_DISPATCH_DECLARATION;
+    delete cleanEnv.CYV_DISPATCH_ID;
+    delete cleanEnv.CYV_DISPATCH_PARENTS;
+    return { cwd: repo, argv, env: cleanEnv };
   }
 
   it('lists the agents it can invoke and the command line each is driven by', async () => {
@@ -213,6 +218,113 @@ describe('cyv dispatch', () => {
       await expect(
         dispatchCommand.run(context(['--task-file', 'no-such-task.md', '--own', 'a.ts', '--dry-run'])),
       ).rejects.toThrow(/--task-file "no-such-task\.md"/);
+    });
+  });
+
+  describe('--abandon', () => {
+    it('refuses to abandon an unknown dispatch id', async () => {
+      await writeConfig(repo, executorConfig([{ id: 'codex-lane', agentId: 'codex', cap: 1 }]));
+      const code = await dispatchCommand.run(context(['--abandon', 'unknown-id']));
+      expect(code).toBe(2);
+      expect(captured.errors.join('\n')).toContain('Unknown dispatch id "unknown-id"');
+    });
+
+    it('refuses to abandon an already closed dispatch', async () => {
+      await writeConfig(repo, executorConfig([{ id: 'codex-lane', agentId: 'codex', cap: 1, orchestrator: true }]));
+      // Self-dispatch and then close it
+      await dispatchCommand.run(context(['--task', 't', '--own', 'a.ts', '--self', '--work-id', 'test-work']));
+      await dispatchCommand.run(context(['--close', 'test-work-attempt-1']));
+      
+      const code = await dispatchCommand.run(context(['--abandon', 'test-work-attempt-1']));
+      expect(code).toBe(2);
+      expect(captured.errors.join('\n')).toContain('is already closed');
+    });
+
+    it('releases paths so a later dispatch claiming them is not refused', async () => {
+      await writeConfig(repo, executorConfig([{ id: 'codex-lane', agentId: 'codex', cap: 1, orchestrator: true }]));
+      // Open a dispatch and don't close it
+      await dispatchCommand.run(context(['--task', 't', '--own', 'a.ts', '--self', '--work-id', 'hanging']));
+      
+      // Try to open a second dispatch claiming the same path
+      const tryCode = await dispatchCommand.run(context(['--task', 't2', '--own', 'a.ts', '--work-id', 'blocked']));
+      expect(tryCode).toBe(1);
+      expect(captured.logs.join('\n')).toContain('refused: another dispatch already in flight declares paths this one also claims');
+
+      // Abandon the first
+      const abandonCode = await dispatchCommand.run(context(['--abandon', 'hanging-attempt-1', '--reason', 'hung']));
+      expect(abandonCode).toBe(1); // abandoned is did-not-complete, so it exits 1
+
+      // Second dispatch should now schedule (run will start executor, but since it's just dry-run here to check it schedules? 
+      // wait, if I use --self it won't spawn anything)
+      const successCode = await dispatchCommand.run(context(['--task', 't2', '--own', 'a.ts', '--work-id', 'freed', '--self']));
+      expect(successCode).toBe(0);
+    });
+  });
+
+  describe('nested dispatches', () => {
+    it('refuses to widen ownership', async () => {
+      await writeConfig(repo, executorConfig([{ id: 'codex-lane', agentId: 'codex', cap: 1 }]));
+
+      const code = await dispatchCommand.run({
+        ...context(['--task', 't', '--own', 'a.ts', '--own', 'b.ts']),
+        env: { ...context([]).env, CYV_DISPATCH_DECLARATION: JSON.stringify(['a.ts']) },
+      });
+
+      expect(code).toBe(2);
+      expect(captured.errors.join('\n')).toContain('Nested dispatch may not widen ownership');
+      expect(captured.errors.join('\n')).toContain('b.ts');
+    });
+
+    it('refuses to nest two deep', async () => {
+      await writeConfig(repo, executorConfig([{ id: 'codex-lane', agentId: 'codex', cap: 1 }]));
+
+      const code = await dispatchCommand.run({
+        ...context(['--task', 't', '--own', 'a.ts']),
+        env: { ...context([]).env, CYV_DISPATCH_PARENTS: 'parent1', CYV_DISPATCH_ID: 'parent2' },
+      });
+
+      expect(code).toBe(2);
+      expect(captured.errors.join('\n')).toContain('a dispatch two levels deep');
+      expect(captured.errors.join('\n')).toContain('parent1 → parent2');
+    });
+
+    it('refuses when the concurrency cap is reached by the parent', async () => {
+      await writeConfig(repo, executorConfig([
+        { id: 'codex-lane', agentId: 'codex', cap: 1, orchestrator: true, acceptsDispatch: true },
+        { id: 'other-lane', agentId: 'codex', cap: 1 },
+      ]));
+
+      // Parent dispatch opens and occupies the 1 lane slot on codex-lane
+      await dispatchCommand.run({
+        ...context(['--task', 't', '--own', 'a.ts', '--self', '--work-id', 'parent-work', '--lane', 'codex-lane']),
+        env: context([]).env,
+      });
+
+      // Child dispatch tries to schedule on the SAME lane but fails because the parent is taking the slot
+      const code = await dispatchCommand.run({
+        ...context(['--task', 't', '--own', 'a.ts', '--work-id', 'child-work', '--lane', 'codex-lane']),
+        env: { ...context([]).env, CYV_DISPATCH_ID: 'parent-work-attempt-1', CYV_DISPATCH_DECLARATION: JSON.stringify(['a.ts']) },
+      });
+
+      expect(code).toBe(1);
+      const output = captured.logs.join('\n');
+      expect(output).toContain('running its declared cap of 1 (1 in flight)');
+    });
+
+    it('records the parent dispatch id', async () => {
+      await writeConfig(repo, executorConfig([{ id: 'codex-lane', agentId: 'codex', cap: 1, orchestrator: true }]));
+
+      const code = await dispatchCommand.run({
+        ...context(['--task', 't', '--own', 'a.ts', '--self', '--work-id', 'child-work']),
+        env: { ...context([]).env, CYV_DISPATCH_ID: 'parent-dispatch' },
+      });
+      expect(code).toBe(0);
+
+      const log = await readDispatchLog(repo);
+      const child = log.records.find(r => r.workId === 'child-work');
+      expect(child).toBeDefined();
+      if (!child) throw new Error('child is undefined');
+      expect(child.parentDispatchId).toBe('parent-dispatch');
     });
   });
 });
