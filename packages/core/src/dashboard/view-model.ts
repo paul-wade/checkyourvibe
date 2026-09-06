@@ -274,6 +274,29 @@ export interface DiffInstanceState {
   external?: boolean;
 }
 
+export interface DiffFileSummary {
+  path: string;
+  additions: number;
+  deletions: number;
+}
+
+export interface DiffSummary {
+  additions: number;
+  deletions: number;
+  filesCount: number;
+  files: readonly DiffFileSummary[];
+}
+
+export interface ExecutionHistoryItem {
+  id: string;
+  task: string;
+  laneId: string;
+  model: string;
+  durationMs?: number;
+  outcome: DispatchOutcomeKind | 'out-of-scope-write' | 'passed';
+  finishedAt: string;
+}
+
 export interface HomePage {
   project: { root: string; name: string };
   projects: readonly ProjectOption[];
@@ -282,6 +305,8 @@ export interface HomePage {
   motion: MotionRegion;
   lanes: LanesRegion;
   exchange: ExchangeRegion;
+  diffSummary?: DiffSummary;
+  executionHistory?: readonly ExecutionHistoryItem[];
   /** Epoch milliseconds the page was built; ages are computed against it. */
   now: number;
 }

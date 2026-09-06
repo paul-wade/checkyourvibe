@@ -1,0 +1,23 @@
+{
+  "projectId": "17590787663427686906",
+  "title": "Agent Orchestrator Dashboard",
+  "exportedOn": "2026-09-05",
+  "purpose": "Local design references; not integrated into application code.",
+  "screens": [
+    { "id": "867d2225e5d3456ba52ce014642ff9cf", "title": "Desktop Workbench", "device": "DESKTOP", "code": "desktop-workbench.html", "screenshot": "desktop-workbench.png" },
+    { "id": "6e01158024f343698cb69a8dd787f0e6", "title": "Needs You Triage Deck", "device": "MOBILE", "code": "needs-you-triage-deck.html", "screenshot": "needs-you-triage-deck.png" },
+    { "id": "a3c7615c698c433c984d25054b998398", "title": "Waves Task Pipeline", "device": "MOBILE", "code": "waves-task-pipeline.html", "screenshot": "waves-task-pipeline.png" },
+    { "id": "b33de5403b8944f6aad499d62c5e73c1", "title": "Glance Status Hub", "device": "MOBILE", "code": "glance-status-hub.html", "screenshot": "glance-status-hub.png" },
+    { "id": "ef7742e4cd084fe5bbcc57f28cab8fe4", "title": "checkyourvibe icon", "code": "checkyourvibe-icon.svg", "screenshot": "checkyourvibe-icon.png" }
+  ],
+  "uploadedReferenceImages": [
+    { "fileId": "11885311902950946918", "screenId": "11885311902950948379", "path": "ref-11885311902950946918.png", "bytes": 17899, "width": 2557, "height": 1302 },
+    { "fileId": "11885311902950948066", "screenId": "11885311902950945431", "path": "ref-11885311902950948066.png", "bytes": 70645, "width": 1378, "height": 1105 },
+    { "fileId": "11885311902950948666", "screenId": "11885311902950946031", "path": "ref-11885311902950948666.png", "bytes": 73813, "width": 2094, "height": 1291 },
+    { "fileId": "11885311902950947492", "screenId": "11885311902950944857", "path": "ref-11885311902950947492.png", "bytes": 50716, "width": 1966, "height": 1026 },
+    { "fileId": "11885311902950945744", "screenId": "11885311902950947205", "path": "ref-11885311902950945744.png", "bytes": 40266, "width": 2346, "height": 1285 },
+    { "fileId": "11885311902950946318", "screenId": "11885311902950947779", "path": "ref-11885311902950946318.png", "bytes": 21310, "width": 1303, "height": 394 },
+    { "fileId": "11885311902950945144", "screenId": "11885311902950946605", "path": "ref-11885311902950945144.png", "bytes": 91891, "width": 1368, "height": 1044 },
+    { "fileId": "11885311902950946892", "screenId": "11885311902950948353", "path": "ref-11885311902950946892.png", "bytes": 89590, "width": 1720, "height": 1245 }
+  ]
+}

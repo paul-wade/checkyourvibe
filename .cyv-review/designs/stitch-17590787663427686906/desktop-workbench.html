@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "inverse-surface": "#e3e2e6", "primary-container": "#947dff", "inverse-on-surface": "#303034", "surface": "#121316", "primary-fixed-dim": "#cabeff", "primary-fixed": "#e6deff", "on-secondary-fixed-variant": "#005236", "secondary": "#4edea3", "on-primary": "#32009a", "error-container": "#93000a", "on-tertiary-fixed-variant": "#653e00", "tertiary-fixed-dim": "#ffb95f", "secondary-fixed-dim": "#4edea3", "on-primary-fixed": "#1c0062", "on-error-container": "#ffdad6", "surface-tint": "#cabeff", "error": "#ffb4ab", "surface-container": "#1f1f23", "tertiary": "#ffb95f", "surface-variant": "#343538", "tertiary-fixed": "#ffddb8", "surface-container-lowest": "#0d0e11", "on-tertiary-fixed": "#2a1700", "tertiary-container": "#ca8100", "on-background": "#e3e2e6", "on-tertiary": "#472a00", "on-primary-container": "#2b0088", "surface-container-low": "#1b1b1f", "on-error": "#690005", "secondary-container": "#00a572", "surface-dim": "#121316", "on-secondary-container": "#00311f", "on-secondary-fixed": "#002113", "on-surface": "#e3e2e6", "surface-container-high": "#292a2d", "secondary-fixed": "#6ffbbe", "outline": "#938ea1", "surface-container-highest": "#343538", "on-secondary": "#003824", "on-primary-fixed-variant": "#4918c8", "on-surface-variant": "#c9c4d8", "on-tertiary-container": "#3e2400", "surface-bright": "#38393c", "outline-variant": "#484555", "background": "#121316", "primary": "#cabeff", "inverse-primary": "#613de0" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "gutter-tablet": "1.5rem", "space-md": "0.75rem", "space-2xs": "0.125rem", "space-xs": "0.25rem", "space-2xl": "1.5rem", "space-xl": "1.25rem", "gutter-desktop": "2rem", "space-sm": "0.5rem", "touch-target-min": "2.75rem", "space-3xl": "2rem", "gutter-mobile": "1rem", "space-lg": "1rem" }, "fontFamily": { "mono-lg": [ "JetBrains Mono" ], "label-md": [ "Inter" ], "label-xs": [ "JetBrains Mono" ], "body-sm": [ "Inter" ], "headline-sm": [ "Geist" ], "body-md": [ "Inter" ], "mono-sm": [ "JetBrains Mono" ], "body-lg": [ "Inter" ], "headline-lg": [ "Geist" ], "headline-xl": [ "Geist" ], "mono-md": [ "JetBrains Mono" ] }, "fontSize": { "mono-lg": [ "14px", { "lineHeight": "20px", "fontWeight": "500" } ], "label-md": [ "12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" } ], "label-xs": [ "10px", { "lineHeight": "12px", "letterSpacing": "0.06em", "fontWeight": "600" } ], "body-sm": [ "12px", { "lineHeight": "16px", "fontWeight": "400" } ], "headline-sm": [ "18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "500" } ], "body-md": [ "14px", { "lineHeight": "20px", "fontWeight": "400" } ], "mono-sm": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "400" } ], "body-lg": [ "16px", { "lineHeight": "24px", "fontWeight": "400" } ], "headline-lg": [ "24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "600" } ], "headline-xl": [ "32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" } ], "mono-md": [ "12px", { "lineHeight": "16px", "fontWeight": "400" } ] } } } };</script></head><body class="bg-background font-body-md text-on-surface min-h-screen"><header class="fixed top-0 left-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.3)]"><div class="h-14 w-full px-gutter-desktop flex items-center justify-between gap-space-lg"><div class="flex items-center gap-space-md min-w-0"><img alt="Brand logo. - Primary color: #7c5cfc
+- Font: geist
+- Mode: dark
+- Roundness: rounded-sm
+" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1U39AUbpRljwkmaVbqvgGihf72-1_ru2q_W6vJ--FdnbjKhvkBBY4ak-IMjTjVLRUhExqdyFHkpx9qjILY_WX8sABC3tBx_jgfzdnLMXFj7atfHektNSKdWLo5Fsg-1w30Nk7kHIX5k67gH-6pw5mwv3wuh8MtCoycDloLjDZNwMpGaX4G-mFT9aw26X9j0GiEAFyLGB36WhbBxOJqiEUFojKwPRc2lWGMR92oeyYf7vAwGVH7UtQGSs1o"/><div class="flex items-center gap-space-xs px-space-sm py-space-2xs bg-surface-container rounded cursor-pointer hover:bg-surface-container-high transition-colors"><span class="font-mono-md text-mono-md text-primary">checkyourvibe</span><span class="font-mono-md text-mono-md text-outline">/</span><span class="font-mono-md text-mono-md text-on-surface truncate">agent/wave-882</span><span class="material-symbols-outlined text-outline text-[16px]">unfold_more</span></div><div class="flex items-center gap-space-xs px-space-xs py-space-2xs bg-surface-container-low rounded"><span class="material-symbols-outlined text-outline text-[14px]">fork_right</span><span class="font-mono-sm text-mono-sm text-on-surface-variant">main</span></div><div class="flex items-center gap-space-xs px-space-sm py-space-2xs bg-surface-container-lowest rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span><span class="font-mono-sm text-mono-sm text-secondary">LIVE</span><span class="font-mono-sm text-mono-sm text-outline">• 78m ago clean</span></div></div><nav class="hidden xl:flex items-center gap-space-xs" data-active-classes="bg-surface-container-highest text-on-surface font-semibold"><a aria-current="page" class="px-space-md py-space-xs rounded transition-colors bg-surface-container-highest text-on-surface font-semibold" data-path="workbench" href="#">Workbench</a><a class="px-space-md py-space-xs rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="waves-and-tasks" href="#">Waves &amp; Tasks</a><a class="px-space-md py-space-xs rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors flex items-center gap-space-xs" data-path="needs-you" href="#">Needs You<span class="px-1.5 py-0.5 rounded-full bg-tertiary-container text-on-tertiary-container font-mono-sm text-mono-sm font-bold">3</span></a><a class="px-space-md py-space-xs rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="specs-and-rules" href="#">Specs &amp; Rules</a><a class="px-space-md py-space-xs rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="diffs-and-logs" href="#">Diffs &amp; Logs</a></nav><div class="flex items-center gap-space-md flex-shrink-0"><div class="relative hidden lg:flex items-center"><span class="material-symbols-outlined absolute left-space-sm text-outline text-[16px]">search</span><input class="h-8 pl-8 pr-space-md bg-surface-container rounded font-mono-sm text-mono-sm text-on-surface placeholder-outline focus:outline-none focus:ring-1 focus:ring-primary w-48 transition-all" placeholder="Filter telemetry or cmd..." type="text"/></div><div class="flex items-center gap-space-xs"><button class="h-8 px-space-md bg-surface-container hover:bg-surface-container-high text-on-surface rounded font-mono-sm text-mono-sm flex items-center gap-space-xs transition-colors" type="button"><span class="material-symbols-outlined text-[14px] text-tertiary">play_arrow</span><span>cyv check</span></button><button class="h-8 px-space-md bg-primary hover:bg-primary-container text-on-primary rounded font-label-md text-label-md flex items-center gap-space-xs transition-colors" type="button"><span class="material-symbols-outlined text-[14px]">bolt</span><span>Dispatch Run</span></button><button class="h-8 w-8 bg-surface-container hover:bg-surface-container-high text-on-surface rounded flex items-center justify-center transition-colors" title="Toggle Terminal" type="button"><span class="material-symbols-outlined text-[18px]">terminal</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 cursor-pointer"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-14 bg-background min-h-screen"><div class="flex flex-col w-full">
+<!-- Top Global Telemetry & Incident Status Strip -->
+<div class="w-full bg-surface-container-lowest px-gutter-desktop py-space-sm shadow-md">
+<div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md">
+<!-- Stalled Loop Notification Banner -->
+<div class="flex items-center gap-space-md min-w-0 flex-1">
+<div class="flex items-center gap-space-xs px-space-sm py-space-2xs rounded bg-tertiary-container text-on-tertiary-container font-mono-sm text-mono-sm font-bold flex-shrink-0">
+<span class="material-symbols-outlined text-[15px] animate-pulse">pause_circle</span>
+<span>ORCHESTRATOR STALLED (4d)</span>
+</div>
+<p class="font-mono-sm text-mono-sm text-on-surface-variant truncate">
+<span class="text-tertiary font-medium">cycle loop held</span> on agent verification. Open work ready: <span class="text-secondary font-medium">2 lanes free</span>, <span class="text-outline">0 dispatched</span>.
+        </p>
+</div>
+<!-- Quick Actions and KPI Metric Cluster -->
+<div class="flex items-center gap-space-md flex-shrink-0 flex-wrap">
+<div class="flex items-center gap-space-sm font-mono-sm text-mono-sm">
+<div class="flex items-center gap-space-2xs px-space-sm py-space-2xs rounded bg-surface-container">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-tertiary font-bold">3</span>
+<span class="text-outline">Needs You</span>
+</div>
+<div class="flex items-center gap-space-2xs px-space-sm py-space-2xs rounded bg-surface-container">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-secondary font-bold">2/3</span>
+<span class="text-outline">Lanes Idle</span>
+</div>
+<div class="flex items-center gap-space-2xs px-space-sm py-space-2xs rounded bg-surface-container">
+<span class="text-on-surface font-bold">0</span>
+<span class="text-outline">Tasks Running</span>
+</div>
+<div class="flex items-center gap-space-2xs px-space-sm py-space-2xs rounded bg-surface-container text-outline">
+<span>Tree:</span>
+<span class="text-secondary">+33</span>
+<span>/</span>
+<span class="text-error">-30</span>
+</div>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="h-7 px-space-sm rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-mono-sm text-mono-sm flex items-center gap-space-2xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">sync</span>
+<span>Unstall Engine</span>
+</button>
+<button class="h-7 px-space-sm rounded bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md flex items-center gap-space-2xs shadow-sm transition-all" type="button">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+<span>Resume Cycle</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Primary 3-Column Desktop Grid Command Center -->
+<div class="w-full px-gutter-desktop py-space-md">
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-md items-start">
+<!-- LEFT COLUMN: Agent Lanes & Capacity Matrix (~320px on desktop) -->
+<aside class="xl:col-span-3 flex flex-col gap-space-md min-w-0">
+<!-- Lanes Container -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-md shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-outline text-[16px]">account_tree</span>
+<h2 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Agent Lanes &amp; Capacity</h2>
+</div>
+<span class="font-mono-sm text-mono-sm text-outline">3 Configured</span>
+</div>
+<!-- Lane 1: antigravity-cli -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs hover:bg-surface-container-high transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="font-mono-md text-mono-md text-on-surface font-semibold truncate">antigravity-cli</span>
+</div>
+<span class="px-space-xs py-0.5 rounded-full bg-secondary/15 text-secondary font-mono-sm text-mono-sm uppercase font-semibold">FREE</span>
+</div>
+<div class="flex items-center justify-between font-mono-sm text-mono-sm text-outline">
+<span>0 of 1 running</span>
+<span class="text-on-surface-variant">tier: subscription</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-1 rounded-full overflow-hidden mt-space-2xs">
+<div class="bg-secondary h-full w-0"></div>
+</div>
+<div class="flex items-center justify-between pt-space-2xs">
+<span class="font-mono-sm text-mono-sm text-outline truncate">claude-3-7-sonnet</span>
+<button class="font-mono-sm text-mono-sm text-primary hover:text-primary-fixed flex items-center gap-space-2xs" type="button">
+<span>Dispatch</span>
+<span class="material-symbols-outlined text-[12px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Lane 2: devin-cli -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs hover:bg-surface-container-high transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="font-mono-md text-mono-md text-on-surface font-semibold truncate">devin-cli</span>
+</div>
+<span class="px-space-xs py-0.5 rounded-full bg-secondary/15 text-secondary font-mono-sm text-mono-sm uppercase font-semibold">FREE</span>
+</div>
+<div class="flex items-center justify-between font-mono-sm text-mono-sm text-outline">
+<span>0 of 1 running</span>
+<span class="text-on-surface-variant">tier: subscription</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-1 rounded-full overflow-hidden mt-space-2xs">
+<div class="bg-secondary h-full w-0"></div>
+</div>
+<div class="flex items-center justify-between pt-space-2xs">
+<span class="font-mono-sm text-mono-sm text-outline truncate">swe-1-7-medium</span>
+<button class="font-mono-sm text-mono-sm text-primary hover:text-primary-fixed flex items-center gap-space-2xs" type="button">
+<span>Dispatch</span>
+<span class="material-symbols-outlined text-[12px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Lane 3: claude-code-cli -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+<span class="font-mono-md text-mono-md text-on-surface font-semibold truncate">claude-code-cli</span>
+</div>
+<div class="flex items-center gap-space-2xs">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-mono-sm text-mono-sm uppercase font-semibold">ORCHESTRATOR</span>
+<span class="px-space-xs py-0.5 rounded-full bg-outline-variant/30 text-outline font-mono-sm text-mono-sm uppercase">RESERVED</span>
+</div>
+</div>
+<div class="flex items-center justify-between font-mono-sm text-mono-sm text-outline">
+<span>0 of 1 running</span>
+<span class="text-on-surface-variant">model: claude-3-opus</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-1 rounded-full overflow-hidden mt-space-2xs">
+<div class="bg-primary h-full w-0"></div>
+</div>
+<div class="pt-space-2xs">
+<span class="font-mono-sm text-mono-sm text-outline truncate">Self-reported healthy 4d ago • idle host</span>
+</div>
+</div>
+</div>
+<!-- Discovered Probes (Unregistered CLI Warnings) -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-sm shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs text-tertiary">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Discovered in PATH</h3>
+</div>
+<span class="font-mono-sm text-mono-sm text-tertiary font-bold">2 Unmapped</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Binaries exist in environment but have not been declared as active dispatch lanes:
+          </p>
+<div class="space-y-space-xs font-mono-sm text-mono-sm">
+<div class="p-space-xs bg-surface-container rounded flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="text-on-surface font-semibold">codex</span>
+<span class="text-outline">/usr/local/bin/codex</span>
+</div>
+<button class="px-space-xs py-0.5 bg-surface-container-high hover:bg-surface-bright rounded text-on-surface text-mono-sm" type="button">
+                + Attach
+              </button>
+</div>
+<div class="p-space-xs bg-surface-container rounded flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="text-on-surface font-semibold">gemini</span>
+<span class="text-error font-medium">(tier error)</span>
+</div>
+<button class="px-space-xs py-0.5 bg-surface-container-high hover:bg-surface-bright rounded text-on-surface text-mono-sm" type="button">
+                Inspect
+              </button>
+</div>
+</div>
+</div>
+<!-- CLI Rapid Action Deck -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-sm shadow-sm">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-outline text-[16px]">terminal</span>
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Quick Command Deck</h3>
+</div>
+<div class="grid grid-cols-2 gap-space-xs font-mono-sm text-mono-sm">
+<button class="p-space-xs bg-surface-container hover:bg-surface-container-high text-on-surface rounded text-left transition-colors flex items-center justify-between" type="button">
+<span>cyv check</span>
+<span class="material-symbols-outlined text-[13px] text-outline">play_arrow</span>
+</button>
+<button class="p-space-xs bg-surface-container hover:bg-surface-container-high text-on-surface rounded text-left transition-colors flex items-center justify-between" type="button">
+<span>cyv baseline</span>
+<span class="material-symbols-outlined text-[13px] text-outline">tune</span>
+</button>
+<button class="p-space-xs bg-surface-container hover:bg-surface-container-high text-on-surface rounded text-left transition-colors flex items-center justify-between" type="button">
+<span>cyv acknowledge</span>
+<span class="material-symbols-outlined text-[13px] text-outline">done_all</span>
+</button>
+<button class="p-space-xs bg-surface-container hover:bg-surface-container-high text-on-surface rounded text-left transition-colors flex items-center justify-between" type="button">
+<span>cyv dispatch</span>
+<span class="material-symbols-outlined text-[13px] text-outline">send</span>
+</button>
+</div>
+</div>
+<!-- System Architecture Blueprint Visual -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-sm shadow-sm">
+<div class="flex items-center justify-between">
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Topology Map</h3>
+<span class="font-mono-sm text-mono-sm text-secondary">Healthy Cluster</span>
+</div>
+<div class="w-full h-24 bg-surface-container-lowest rounded relative overflow-hidden flex items-center justify-center">
+<svg class="w-full h-full text-outline-variant" fill="none" preserveaspectratio="none" viewbox="0 0 300 80">
+<path d="M 20 40 L 90 20 L 160 40 L 230 60 L 280 40" stroke="currentColor" stroke-dasharray="3 3" stroke-width="1.5"></path>
+<circle class="fill-secondary" cx="20" cy="40" r="4"></circle>
+<circle class="fill-primary" cx="90" cy="20" r="5"></circle>
+<circle class="fill-tertiary" cx="160" cy="40" r="4"></circle>
+<circle class="fill-secondary" cx="230" cy="60" r="4"></circle>
+<circle class="fill-primary-container" cx="280" cy="40" r="4"></circle>
+</svg>
+<span class="absolute bottom-1 right-2 font-mono-sm text-mono-sm text-outline">node-orchestrator-sync</span>
+</div>
+</div>
+</aside>
+<!-- MIDDLE COLUMN: Wave Pipeline & Code Diff Inspector (Flexible Wide Area) -->
+<section class="xl:col-span-6 flex flex-col gap-space-md min-w-0">
+<!-- Wave Header & Dispatch Bar -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-md shadow-sm">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm text-outline uppercase tracking-wider">
+<span>In Motion</span>
+<span>•</span>
+<span class="text-primary font-bold">0036 · orchestrator survival</span>
+</div>
+<h1 class="font-headline-sm text-headline-sm text-on-surface mt-space-2xs">Autonomous Execution Wave 1</h1>
+</div>
+<div class="flex items-center gap-space-xs">
+<div class="px-space-sm py-space-2xs bg-surface-container rounded font-mono-sm text-mono-sm text-on-surface-variant flex items-center gap-space-xs">
+<span>Filter:</span>
+<span class="text-on-surface font-semibold">Wave 1 (3 items)</span>
+</div>
+<button class="h-9 px-space-md bg-primary hover:bg-primary-container text-on-primary rounded font-label-md text-label-md flex items-center gap-space-xs shadow-md transition-all" type="button">
+<span class="material-symbols-outlined text-[16px]">play_circle</span>
+<span>Dispatch Wave 1</span>
+</button>
+</div>
+</div>
+<!-- Wave 1 Tasks: 3 Parallel Executions -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between font-mono-sm text-mono-sm text-outline px-space-xs">
+<span>WAVE 1 • CAN RUN CONCURRENTLY</span>
+<span>3 TASKS</span>
+</div>
+<!-- Task T36002 -->
+<div class="p-space-sm bg-surface-container rounded flex flex-col gap-space-xs hover:bg-surface-container-high transition-colors">
+<div class="flex items-start justify-between gap-space-sm">
+<div class="min-w-0">
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm">
+<span class="text-primary font-bold">T36002</span>
+<span class="text-on-surface font-semibold">The scheduler refuses rather than falling back</span>
+</div>
+<p class="font-mono-sm text-mono-sm text-outline truncate mt-space-2xs">
+                    packages/core/src/executor/schedule.ts, packages/core/src/executor/escalate.ts
+                  </p>
+</div>
+<div class="flex items-center gap-space-xs flex-shrink-0">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-on-surface-variant font-mono-sm text-mono-sm">devin-cli</span>
+<span class="px-space-xs py-0.5 rounded bg-secondary/15 text-secondary font-mono-sm text-mono-sm font-semibold">Ready</span>
+</div>
+</div>
+</div>
+<!-- Task T36009 -->
+<div class="p-space-sm bg-surface-container rounded flex flex-col gap-space-xs hover:bg-surface-container-high transition-colors">
+<div class="flex items-start justify-between gap-space-sm">
+<div class="min-w-0">
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm">
+<span class="text-primary font-bold">T36009</span>
+<span class="text-on-surface font-semibold">Handing the run to another subscription</span>
+</div>
+<p class="font-mono-sm text-mono-sm text-outline truncate mt-space-2xs">
+                    packages/core/src/cli/handoff.ts, packages/core/src/cli/index.ts
+                  </p>
+</div>
+<div class="flex items-center gap-space-xs flex-shrink-0">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-on-surface-variant font-mono-sm text-mono-sm">antigravity-cli</span>
+<span class="px-space-xs py-0.5 rounded bg-secondary/15 text-secondary font-mono-sm text-mono-sm font-semibold">Ready</span>
+</div>
+</div>
+</div>
+<!-- Task T36011 (Needs Attention highlight) -->
+<div class="p-space-sm bg-surface-container-high rounded flex flex-col gap-space-xs relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary"></div>
+<div class="flex items-start justify-between gap-space-sm pl-space-xs">
+<div class="min-w-0">
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm">
+<span class="text-primary font-bold">T36011</span>
+<span class="text-on-surface font-semibold">Ask each agent what it can actually do</span>
+</div>
+<p class="font-mono-sm text-mono-sm text-outline truncate mt-space-2xs">
+                    packages/core/src/executor/probe.ts, packages/core/src/executor/catalogue.ts
+                  </p>
+</div>
+<div class="flex items-center gap-space-xs flex-shrink-0">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-on-surface-variant font-mono-sm text-mono-sm">antigravity-cli</span>
+<span class="px-space-xs py-0.5 rounded bg-tertiary/20 text-tertiary font-mono-sm text-mono-sm font-bold animate-pulse">Needs Judgment</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Dependency & Blocked Tasks Graph -->
+<div class="flex flex-col gap-space-xs pt-space-xs">
+<div class="flex items-center justify-between font-mono-sm text-mono-sm text-outline px-space-xs">
+<span>DOWNSTREAM DEPENDENCY CHAIN (BLOCKED)</span>
+<span>4 TASKS WAITING</span>
+</div>
+<div class="space-y-space-xs">
+<div class="p-space-xs bg-surface-container rounded flex items-center justify-between opacity-75">
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm min-w-0">
+<span class="material-symbols-outlined text-outline text-[14px]">lock</span>
+<span class="text-on-surface font-medium truncate">T36010 Kill orchestrator mid-run &amp; read state back</span>
+</div>
+<span class="font-mono-sm text-mono-sm text-outline flex-shrink-0">waits on T36009</span>
+</div>
+<div class="p-space-xs bg-surface-container rounded flex items-center justify-between opacity-75">
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm min-w-0">
+<span class="material-symbols-outlined text-outline text-[14px]">lock</span>
+<span class="text-on-surface font-medium truncate">T36012 Report lane declaration mismatch with vendor</span>
+</div>
+<span class="font-mono-sm text-mono-sm text-outline flex-shrink-0">waits on T36011</span>
+</div>
+<div class="p-space-xs bg-surface-container rounded flex items-center justify-between opacity-75">
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm min-w-0">
+<span class="material-symbols-outlined text-outline text-[14px]">lock</span>
+<span class="text-on-surface font-medium truncate">T36017 Every lane cooling is a diagnosis finding</span>
+</div>
+<span class="font-mono-sm text-mono-sm text-outline flex-shrink-0">waits on T36016</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Integrated Code Diff & Gate Verification Inspector -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-sm shadow-sm">
+<div class="flex items-center justify-between">
+<!-- Tabs -->
+<div class="flex items-center gap-space-xs font-mono-sm text-mono-sm">
+<button class="px-space-sm py-space-xs rounded bg-surface-container-highest text-on-surface font-semibold" type="button">
+                handoff.ts (Diff)
+              </button>
+<button class="px-space-sm py-space-xs rounded bg-surface-container text-on-surface-variant hover:text-on-surface" type="button">
+                requirements.md (Specs)
+              </button>
+<button class="px-space-sm py-space-xs rounded bg-surface-container text-on-surface-variant hover:text-on-surface flex items-center gap-space-2xs" type="button">
+<span>gate-failures.log</span>
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+</button>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="px-space-xs py-1 rounded bg-surface-container hover:bg-surface-container-high text-outline text-mono-sm" type="button">
+                Split
+              </button>
+<button class="px-space-xs py-1 rounded bg-surface-container hover:bg-surface-container-high text-secondary text-mono-sm font-semibold" type="button">
+                Accept Hunk
+              </button>
+</div>
+</div>
+<!-- Code Diff Viewer Box -->
+<div class="bg-surface-container-lowest rounded p-space-sm font-mono-sm text-mono-sm overflow-x-auto leading-relaxed">
+<div class="text-outline pb-space-2xs font-mono-sm text-mono-sm">
+              @@ -42,8 +42,12 @@ export async function handoff(task: TaskContext): Promise&lt;HandoffResult&gt; {
+            </div>
+<div class="flex items-center text-on-surface-variant">
+<span class="w-6 text-outline select-none">42</span>
+<span>  const activeLane = await laneCatalogue.findAvailableLane(task.scope);</span>
+</div>
+<div class="flex items-center text-error bg-error-container/20">
+<span class="w-6 text-error/60 select-none">43</span>
+<span>- if (!activeLane) throw new LaneUnavailableError(task.id);</span>
+</div>
+<div class="flex items-center text-secondary bg-secondary-container/20">
+<span class="w-6 text-secondary/60 select-none">43</span>
+<span>+ if (!activeLane || !activeLane.isAuthenticated()) {</span>
+</div>
+<div class="flex items-center text-secondary bg-secondary-container/20">
+<span class="w-6 text-secondary/60 select-none">44</span>
+<span>+   await recordTelemetryFailure('LANE_AUTH_ABSENT', activeLane?.id);</span>
+</div>
+<div class="flex items-center text-secondary bg-secondary-container/20">
+<span class="w-6 text-secondary/60 select-none">45</span>
+<span>+   return fallbackEscalation(task, { reason: 'UNAUTHENTICATED' });</span>
+</div>
+<div class="flex items-center text-secondary bg-secondary-container/20">
+<span class="w-6 text-secondary/60 select-none">46</span>
+<span>+ }</span>
+</div>
+<div class="flex items-center text-on-surface-variant">
+<span class="w-6 text-outline select-none">47</span>
+<span>  return executeLane(activeLane, task.specDigest);</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-outline font-mono-sm text-mono-sm pt-space-2xs">
+<span>Branch: wave-882-survival-handoff</span>
+<span>Uncommitted changes (Clean gate tests passing)</span>
+</div>
+</div>
+</section>
+<!-- RIGHT COLUMN: Human-in-the-Loop Triage & Live Exchange (~380px on desktop) -->
+<aside class="xl:col-span-3 flex flex-col gap-space-md min-w-0">
+<!-- Needs Human Decision Tray (Queue: Critical) -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-md shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs text-tertiary">
+<span class="material-symbols-outlined text-[18px]">gavel</span>
+<h2 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Needs Human Decision</h2>
+</div>
+<span class="px-space-xs py-0.5 rounded bg-tertiary-container text-on-tertiary-container font-mono-sm text-mono-sm font-bold">3 items</span>
+</div>
+<!-- Expanded Focus Decision Card: T36011 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-mono-md text-mono-md text-primary font-bold">t36011-attempt-2</span>
+<span class="font-mono-sm text-mono-sm text-outline">109h ago</span>
+</div>
+<p class="font-mono-sm text-mono-sm text-on-surface-variant leading-relaxed">
+<span class="text-tertiary font-semibold">The Problem:</span> `cyv dispatch --agents` checks whether a program resolves on PATH and stops there. `gemini` resolves then throws an ineligible-tier error.
+            </p>
+<div class="bg-surface-container-lowest p-space-xs rounded font-mono-sm text-mono-sm space-y-space-2xs">
+<div class="text-outline uppercase text-[10px] font-bold tracking-wide">Validation Rules:</div>
+<div class="flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[14px]">check_box</span>
+<span class="text-on-surface">Establish authentication, not just presence.</span>
+</div>
+<div class="flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-outline text-[14px]">check_box_outline_blank</span>
+<span class="text-on-surface">Read agent's own model list via CLI.</span>
+</div>
+<div class="flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-outline text-[14px]">check_box_outline_blank</span>
+<span class="text-on-surface">Report undetermined states rather than boolean false.</span>
+</div>
+</div>
+<!-- Decision Control Actions -->
+<div class="flex items-center gap-space-xs pt-space-2xs">
+<button class="flex-1 h-8 rounded bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md transition-colors flex items-center justify-center gap-space-2xs" type="button">
+<span class="material-symbols-outlined text-[14px]">check</span>
+<span>Approve &amp; Run</span>
+</button>
+<button class="h-8 px-space-sm rounded bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md transition-colors" type="button">
+                Edit Prompt
+              </button>
+</div>
+</div>
+</div>
+<!-- Agent Note Exchange (Bi-directional human agent chat queue) -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-sm shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-outline text-[16px]">forum</span>
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Agent Note Exchange</h3>
+</div>
+<span class="font-mono-sm text-mono-sm text-tertiary">1 Unread by Agent</span>
+</div>
+<!-- Note #35 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between font-mono-sm text-mono-sm">
+<span class="text-primary font-bold">Note #35</span>
+<span class="text-outline">3d unread • Owner → Agent</span>
+</div>
+<p class="font-mono-sm text-mono-sm text-on-surface">
+              "id think devin and agy can handle 2 active tasks concurrently?"
+            </p>
+<div class="flex items-center justify-end gap-space-xs pt-space-2xs">
+<button class="px-space-xs py-0.5 rounded bg-surface-container-high hover:bg-surface-bright text-on-surface font-mono-sm text-mono-sm" type="button">
+                Mark Addressed
+              </button>
+<button class="px-space-xs py-0.5 rounded bg-primary hover:bg-primary-container text-on-primary font-mono-sm text-mono-sm font-semibold" type="button">
+                Tell The Agent
+              </button>
+</div>
+</div>
+<!-- Note #34 status -->
+<div class="p-space-xs bg-surface-container-lowest rounded font-mono-sm text-mono-sm text-outline flex items-center justify-between">
+<span>Note #34: Acknowledged by devin-cli</span>
+<span class="text-secondary">Synced</span>
+</div>
+</div>
+<!-- Recent Execution Telemetry Feed -->
+<div class="bg-surface-container-low rounded p-space-md flex flex-col gap-space-xs shadow-sm">
+<div class="flex items-center justify-between mb-space-xs">
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Recent Executions</h3>
+<span class="font-mono-sm text-mono-sm text-outline">Last 24h</span>
+</div>
+<div class="space-y-space-xs font-mono-sm text-mono-sm">
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="text-on-surface truncate">T40014 baseline checks</span>
+</div>
+<span class="text-secondary flex-shrink-0">Pass 1.2s</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="text-on-surface truncate">T40013 clean staged trees</span>
+</div>
+<span class="text-secondary flex-shrink-0">Pass 0.8s</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+<span class="text-on-surface truncate">T40009 typechecker gate</span>
+</div>
+<span class="text-error flex-shrink-0">Failed</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span class="text-on-surface truncate">T36011 out-of-scope write</span>
+</div>
+<span class="text-tertiary flex-shrink-0">Halted</span>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</div>
+<!-- Bottom Ergonomic Quick Execution Shelf -->
+<div class="sticky bottom-0 left-0 right-0 bg-surface/90 backdrop-blur-md px-gutter-desktop py-space-xs shadow-[0_-2px_12px_rgba(0,0,0,0.5)] z-40">
+<div class="flex flex-col sm:flex-row items-center justify-between gap-space-sm font-mono-sm text-mono-sm">
+<div class="flex items-center gap-space-md text-outline">
+<span class="flex items-center gap-space-2xs text-secondary">
+<span class="material-symbols-outlined text-[15px]">sensors</span>
+<span>Telemetry Stream Online</span>
+</span>
+<span class="hidden md:inline">cyv socket: ws://localhost:3456/stream</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="text-outline">Quick Trigger:</span>
+<button class="h-8 px-space-md rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" type="button">
+          Abort Wave
+        </button>
+<button class="h-8 px-space-md rounded bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary font-label-md text-label-md transition-colors flex items-center gap-space-2xs" type="button">
+<span class="material-symbols-outlined text-[15px]">fast_forward</span>
+<span>Run All Ready Tasks (2)</span>
+</button>
+</div>
+</div>
+</div>
+</div></main><footer class="w-full bg-surface-container-lowest py-space-md px-gutter-desktop shadow-[0_-1px_4px_rgba(0,0,0,0.2)]"><div class="w-full flex flex-col md:flex-row items-center justify-between gap-space-sm font-mono-sm text-mono-sm text-outline"><div class="flex items-center gap-space-md"><span>checkyourvibe agent engine v2.14.0-edge</span><span>•</span><span class="text-secondary">Cluster Node: us-east-prod-04</span></div><div><span>Autonomous Supervisor Active</span></div></div></footer></body></html>
