@@ -6,6 +6,7 @@
  * reads disk or git; a page hands over a body and gets a document back.
  */
 import { esc } from './render.js';
+import { dashboardCss } from './styles.js';
 
 export type ShellTab = 'home' | 'diff' | 'docs' | 'rules';
 
@@ -56,7 +57,7 @@ export const TAB_PATHS: Readonly<Record<ShellTab, string>> = {
   rules: '/rules',
 };
 
-export const CSS = `
+export const CSS = dashboardCss() + `
 /*
  * Read on a phone, away from the machine, to answer one question: is there
  * anything here I have to deal with.

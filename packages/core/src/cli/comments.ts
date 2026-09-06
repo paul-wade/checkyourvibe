@@ -9,6 +9,7 @@ import {
   addComment,
   loadComments,
   REVIEW_DIR,
+  saveStore,
   setCommentStatus,
   type Comment,
   type CommentRefs,
@@ -237,6 +238,44 @@ async function runHook(ctx: CommandContext, agentId: string): Promise<number> {
   advanced.projects.set(root, await highestId(root, since));
   await saveCursors(advanced);
   return delivery.exitCode;
+}
+
+/**
+ * Deliver unread orchestrator notes. Unlike cursor-based reads, this directly
+ * records the delivery timestamp on the note itself.
+ */
+export async function deliverOrchestratorNotes(root: string, agentId: string): Promise<boolean> {
+  const delivery = HOOK_DELIVERY.get(agentId);
+  if (delivery === undefined) return false;
+
+  const store = await loadComments(root);
+  const undelivered = store.comments.filter(
+    (c) => c.status === 'open' && c.refs?.orchestrator && c.refs.deliveredAt === undefined
+  );
+  if (undelivered.length === 0) return true;
+
+  const lines = [
+    `${undelivered.length} unread orchestrator message${undelivered.length === 1 ? '' : 's'} from the owner:`,
+    '',
+  ];
+  for (const note of undelivered) {
+    lines.push(`#${note.id} — ${note.author}`);
+    for (const line of note.body.split('\n')) lines.push(`  ${line}`);
+    lines.push('');
+  }
+  lines.push('Read these before continuing. They carry instructions for your session.');
+
+  const stream = delivery.stream === 'stderr' ? process.stderr : process.stdout;
+  const written = await deliver(stream, lines.join('\n'));
+  if (!written) return false;
+
+  const now = Date.now();
+  for (const note of undelivered) {
+    if (note.refs === undefined) note.refs = {};
+    note.refs.deliveredAt = now;
+  }
+  await saveStore(root, store);
+  return true;
 }
 
 /**

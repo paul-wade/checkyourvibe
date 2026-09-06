@@ -135,6 +135,116 @@ describe('spec parsing', () => {
     expect(specDisplayName('0037-one-dashboard')).toBe('0037 · one dashboard');
     expect(specDisplayName('no-number')).toBe('no number');
   });
+
+  const HEADING_TASKS = `# 0099 — Heading form tasks
+
+## T99010 — Design the layout
+
+Prose describing the task. No depends-on here.
+
+_Exec: lane=worker-lane, gates=build,test, files=\`packages/core/src/a.ts\`, \`packages/core/src/b.ts\`
+
+## T99011 — Wire the readers
+
+More prose. Depends on T99010.
+
+_Exec: lane=worker-lane, gates=build, files=\`packages/core/src/c.ts\`
+
+## Notes
+
+This heading has no task id and should open a section, not create a task.
+`;
+
+  it('parses a heading-form task with its id, title, and _Exec fields', async () => {
+    await writeSpec('0099-heading', HEADING_TASKS);
+    const parsed = await parseTasks(repo, 'docs/specs/0099-heading/tasks.md', '0099-heading');
+
+    expect(parsed.total).toBe(2);
+    // Heading-form tasks carry no checkbox, so done is always false.
+    expect(parsed.done).toBe(0);
+
+    const tasks = parsed.sections[0]?.tasks ?? [];
+    expect(tasks).toHaveLength(2);
+    const [first, second] = tasks;
+    if (first === undefined || second === undefined) {
+      throw new Error('expected two heading-form tasks');
+    }
+    expect(first).toMatchObject({
+      id: 'T99010',
+      title: 'Design the layout',
+      done: false,
+      executor: 'worker-lane',
+      gates: 'build,test',
+      files: ['packages/core/src/a.ts', 'packages/core/src/b.ts'],
+      dependsOn: [],
+      specId: '0099-heading',
+    });
+    expect(second).toMatchObject({
+      id: 'T99011',
+      title: 'Wire the readers',
+      done: false,
+      executor: 'worker-lane',
+      gates: 'build',
+      files: ['packages/core/src/c.ts'],
+      dependsOn: ['T99010'],
+    });
+  });
+
+  it('does not turn a ## heading with no task id into a task', async () => {
+    await writeSpec('0099-heading', HEADING_TASKS);
+    const parsed = await parseTasks(repo, 'docs/specs/0099-heading/tasks.md', '0099-heading');
+    // The `## Notes` heading should open a section (which carries no tasks
+    // and is then filtered out), not create a spurious task entry.
+    const ids = parsed.sections.flatMap((s) => s.tasks.map((t) => t.id));
+    expect(ids).not.toContain('Notes');
+    expect(ids).toEqual(['T99010', 'T99011']);
+  });
+
+  const MIXED_TASKS = `# 0099 — Mixed form
+
+## Open
+
+- [ ] **T99020** Checkbox task
+  _Exec: executor=self kind=mechanical gates=tsc files=packages/core/src/x.ts_
+
+## T99021 — Heading task
+
+Short body.
+
+_Exec: lane=self-lane, gates=tsc, files=\`packages/core/src/y.ts\`
+`;
+
+  it('parses a file that mixes checkbox-form and heading-form tasks', async () => {
+    await writeSpec('0099-mixed', MIXED_TASKS);
+    const parsed = await parseTasks(repo, 'docs/specs/0099-mixed/tasks.md', '0099-mixed');
+
+    expect(parsed.total).toBe(2);
+    const all = parsed.sections.flatMap((s) => s.tasks);
+    expect(all.map((t) => t.id)).toEqual(['T99020', 'T99021']);
+    const [checkboxForm, headingForm] = all;
+    if (checkboxForm === undefined || headingForm === undefined) {
+      throw new Error('expected one task of each form');
+    }
+    expect(checkboxForm).toMatchObject({
+      id: 'T99020',
+      done: false,
+      files: ['packages/core/src/x.ts'],
+    });
+    expect(headingForm).toMatchObject({
+      id: 'T99021',
+      done: false,
+      files: ['packages/core/src/y.ts'],
+    });
+  });
+
+  it('reports a heading-form task with no completion signal as not done', async () => {
+    const noExec = `# 0099\n\n## T99030 — No exec line\n\nJust prose.\n`;
+    await writeSpec('0099-nodone', noExec);
+    const parsed = await parseTasks(repo, 'docs/specs/0099-nodone/tasks.md', '0099-nodone');
+    expect(parsed.total).toBe(1);
+    expect(parsed.done).toBe(0);
+    expect(parsed.sections[0]?.tasks[0]?.done).toBe(false);
+  });
 });
 
 function task(

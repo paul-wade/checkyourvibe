@@ -46,6 +46,8 @@ export interface ParsedSpec extends ParsedTasks {
   id: string;
   /** Repo-relative path to tasks.md, or null for a spec that has none yet. */
   tasksPath: string | null;
+  /** The project declared in requirements.md, or undefined if none. */
+  project?: string;
 }
 
 export interface SpecRollup {
@@ -60,8 +62,10 @@ export interface SpecLocation {
 }
 
 const TASK_LINE = /^-\s*\[( |x|X)\]\s*\*\*(T\d+)\*\*\s*(.*)$/;
-const EXEC_LINE = /^\s*_Exec:\s*(.*?)_\s*$/;
+const EXEC_LINE = /^\s*_Exec:\s*(.*?)_?\s*$/;
 const HEADING_LINE = /^##\s+(.+?)\s*$/;
+/** A `##` heading whose text begins with a task id: `## T51001 — Title` */
+const TASK_HEADING_LINE = /^##\s+(T\d+)\s*(?:[—–-]\s*)?(.*?)\s*$/;
 const TASK_ID = /\bT\d+\b/g;
 
 /**
@@ -99,12 +103,26 @@ export async function parseAllSpecs(repo: string): Promise<SpecRollup> {
   let done = 0;
   let total = 0;
   for (const spec of await findSpecs(repo)) {
+    // The project a spec declares in its requirements head, if it declares
+    // one. A project groups specs belonging to the same piece of work; it is
+    // not the workspace, of which the dashboard already serves several. A spec
+    // directory with no requirements file declares no project, which is the
+    // same answer as a requirements file that names none.
+    const requirements = path.join(repo, 'docs', 'specs', spec.id, 'requirements.md');
+    const head = await readFile(requirements, 'utf8').then(
+      (contents) => contents,
+      () => '',
+    );
+    const named = /(?:^|\n)\*\*Project:\*\*\s*(.+?)(?:\r?\n|$)/.exec(head)?.[1]?.trim();
+    const project = named === undefined || named === '' ? undefined : named;
+
+
     if (spec.tasksPath === null) {
-      specs.push({ id: spec.id, tasksPath: null, sections: [], done: 0, total: 0 });
+      specs.push({ id: spec.id, tasksPath: null, sections: [], done: 0, total: 0, ...(project !== undefined ? { project } : {}) });
       continue;
     }
     const parsed = await parseTasks(repo, spec.tasksPath, spec.id);
-    specs.push({ id: spec.id, tasksPath: spec.tasksPath, ...parsed });
+    specs.push({ id: spec.id, tasksPath: spec.tasksPath, ...(project !== undefined ? { project } : {}), ...parsed });
     done += parsed.done;
     total += parsed.total;
   }
@@ -112,8 +130,29 @@ export async function parseAllSpecs(repo: string): Promise<SpecRollup> {
 }
 
 function execField(exec: string, name: string): string {
-  const match = new RegExp(`(?:^|\\s)${name}=([^\\s]+)`).exec(exec);
-  return match?.[1] ?? '';
+  const match = new RegExp(`(?:^|[\\s,])${name}=([^\\s]+)`).exec(exec);
+  // Trim trailing commas used as field separators in the comma-space format.
+  return (match?.[1] ?? '').replace(/,+$/, '');
+}
+
+/**
+ * Extract the `files=` value from an `_Exec:` string.
+ *
+ * Two formats appear in practice:
+ *   - `files=a.ts,b.ts` — comma-separated, no spaces (older specs)
+ *   - `files=\`a.ts\`, \`b.ts\`` — backtick-wrapped, comma+space separated
+ *
+ * In both cases `files=` tends to be the last field, so the value runs to end
+ * of string. Backtick wrappers are stripped from individual paths.
+ */
+function execFiles(exec: string): readonly string[] {
+  const match = /(?:^|[\s,])files=(.+)$/.exec(exec);
+  if (!match) return [];
+  const raw = match[1] ?? '';
+  return raw
+    .split(',')
+    .map((f) => f.trim().replace(/`/g, ''))
+    .filter((f) => f !== '');
 }
 
 /** The lines a task owns: from the line after it to its `_Exec:` line, next task, or heading. */
@@ -165,9 +204,39 @@ export async function parseTasks(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
 
-    // Any `##` heading opens a section, not only `## Wave N`. An earlier
-    // version matched waves alone and dropped every task filed under
-    // `## Done` or `## Open`, so those specs reported 0 of 0.
+    // A `##` heading whose text begins with a task id is a task record, not a
+    // section divider. Check this before the generic heading branch so that
+    // `## T51001 — Title` is recorded as a task rather than consumed as a
+    // section title.
+    const taskHeading = TASK_HEADING_LINE.exec(line);
+    if (taskHeading) {
+      const section = current ?? openSection('Tasks');
+      current = section;
+      const id = taskHeading[1] ?? '';
+      const title = (taskHeading[2] ?? '').trim();
+      const { body, exec } = taskBlock(lines, i + 1);
+      const files = execFiles(exec);
+      section.tasks.push({
+        id,
+        title: title.replace(/\s+/g, ' ').slice(0, 160),
+        // Heading-form tasks carry no checkbox. No other field in the body
+        // or _Exec: line currently encodes completion, so report not done.
+        done: false,
+        executor: execField(exec, 'executor') || execField(exec, 'lane') || 'unknown',
+        model: execField(exec, 'model'),
+        kind: execField(exec, 'kind'),
+        gates: execField(exec, 'gates'),
+        files,
+        dependsOn: dependencies(body, id),
+        specId,
+        line: i + 1,
+      });
+      continue;
+    }
+
+    // Any `##` heading that does not begin with a task id opens a section.
+    // An earlier version matched waves alone and dropped every task filed
+    // under `## Done` or `## Open`, so those specs reported 0 of 0.
     const heading = HEADING_LINE.exec(line);
     if (heading) {
       current = openSection((heading[1] ?? '').trim());
@@ -188,16 +257,13 @@ export async function parseTasks(
     if (title === '' && next.trim() !== '') title = next.trim();
 
     const { body, exec } = taskBlock(lines, i + 1);
-    const files = execField(exec, 'files')
-      .split(',')
-      .map((f) => f.trim())
-      .filter((f) => f !== '');
+    const files = execFiles(exec);
 
     section.tasks.push({
       id,
       title: title.replace(/\s+/g, ' ').slice(0, 160),
       done: (task[1] ?? '').toLowerCase() === 'x',
-      executor: execField(exec, 'executor') || 'unknown',
+      executor: execField(exec, 'executor') || execField(exec, 'lane') || 'unknown',
       model: execField(exec, 'model'),
       kind: execField(exec, 'kind'),
       gates: execField(exec, 'gates'),

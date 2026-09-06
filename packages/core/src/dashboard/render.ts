@@ -40,6 +40,8 @@ import {
   NOT_FIX_TARGET_VERB,
   type GuidanceSection,
 } from '../guidance/templates.js';
+import { topNavHtml } from './nav.js';
+import { dashboardCss } from './styles.js';
 
 /** Escape for HTML text and attribute contexts. */
 export function esc(value: string): string {
@@ -190,8 +192,8 @@ function refreshClient(volatileHref: string): string {
     var secs=Math.round((Date.now()-lastOk)/1000);
     var ago=secs<2?'just now':secs+'s ago';
     status.textContent=failed
-      ? ('Refresh failed — showing data from '+ago)
-      : ('Live — updated '+ago+' — refreshing every 15s');
+      ? ('reconnecting… — last updated '+ago)
+      : ('polling — updated '+ago);
     status.classList.toggle('stale',failed);
   }
   function poll(){
@@ -223,6 +225,18 @@ function refreshClient(volatileHref: string): string {
 export interface RulesPageNav {
   homeHref: string;
   volatileHref: string;
+  /**
+   * The other dashboard surfaces, so this page is not a dead end. It carries
+   * its own stylesheet rather than the dashboard's, so it renders the same
+   * destinations in its own idiom instead of the shared tab strip.
+   */
+  pages?: readonly { href: string; label: string }[];
+  /**
+   * The project this page is about, so its tabs carry the same `?p=` the rest
+   * of the dashboard does. Without it the tabs lose the project and a
+   * multi-project dashboard navigates to the wrong one.
+   */
+  project?: string;
 }
 
 function severityPill(severity: string): string {
@@ -1420,6 +1434,12 @@ ${renderBaseline(baselineView)}
 ${renderSuppressions(suppressionsView)}`;
 }
 
+/** The last path segment of a project root, or the product name for no root. */
+function projectNameOf(root: string): string {
+  const segments = root.split(/[/\\]/).filter((part) => part !== '');
+  return segments[segments.length - 1] ?? 'checkyourvibe';
+}
+
 export function renderDashboard(
   rules: RuleManifest[],
   analyzerIds: string[],
@@ -1456,15 +1476,18 @@ export function renderDashboard(
   // being regenerated (and briefly blanked) along with it.
   const freshnessBar =
     rules.length > 0 || executor !== null
-      ? `<p id="freshness" class="lede" aria-live="polite">Live — refreshing every 15s.</p>`
+      ? `<p id="freshness" class="lede" aria-live="polite">polling — updated just now</p>`
       : '';
+
+  // The tabs carry `?p=`, so they need the project this page is about.
+  const navProject = nav?.project ?? debt?.repoRoot ?? '';
 
   return `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/svg+xml,${FAVICON}">
-<title>checkyourvibe — rules</title><style>${CSS}</style></head><body>
-${nav === undefined ? '' : `<p class="lede"><a href="${esc(nav.homeHref)}">&larr; dashboard</a></p>`}
+<title>checkyourvibe · Rules</title><style>${dashboardCss()}${CSS}</style></head><body>
+${topNavHtml(projectNameOf(navProject), navProject, '/rules')}
 <h1>checkyourvibe rules</h1>
 <p class="lede">${rules.length} rule${rules.length === 1 ? '' : 's'} from
 ${analyzerIds.length} analyzer${analyzerIds.length === 1 ? '' : 's'}

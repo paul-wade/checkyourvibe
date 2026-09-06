@@ -331,7 +331,7 @@ export async function buildHomePage(input: HomeModelInput): Promise<HomePage> {
   const now = input.now ?? new Date();
   const root = input.root;
   const href = hrefFor(root);
-  const stats: ReadDispatchStats = { unparseableLines: 0 };
+  const stats: ReadDispatchStats = { unparseableLines: 0, unparseableLineNumbers: [] };
 
   const [config, log, latest, comments, specs, projects] = await Promise.all([
     loadConfig(root),
@@ -371,6 +371,25 @@ export async function buildHomePage(input: HomeModelInput): Promise<HomePage> {
     (b.at ?? '').localeCompare(a.at ?? ''),
   );
 
+  const executionHistory = log.records
+    .flatMap((r) => {
+      const closed = r.closed;
+      if (closed === undefined) {
+        return [];
+      }
+      return [
+        {
+          id: r.dispatchId,
+          task: firstLine(r.declaration.task),
+          laneId: r.assignment.laneId,
+          model: r.assignment.model,
+          outcome: closed.outcome.kind,
+          finishedAt: closed.closedAt,
+        },
+      ];
+    })
+    .slice(-10);
+
   return {
     project: { root, name: basename(root) },
     projects,
@@ -379,6 +398,7 @@ export async function buildHomePage(input: HomeModelInput): Promise<HomePage> {
     motion,
     lanes,
     exchange: commentsToExchange(comments, EXCHANGE_SHOWN, readState),
+    executionHistory,
     now: now.getTime(),
   };
 }

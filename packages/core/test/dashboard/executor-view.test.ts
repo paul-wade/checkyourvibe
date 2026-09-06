@@ -280,8 +280,8 @@ describe('buildExecutorView folds the dispatch log and derives nothing else', ()
   });
 
   it('reports no dispatches distinctly from dispatches that need nobody', () => {
-    const absent = buildExecutorView({ log: { records: [], refusals: [] }, logPresent: false });
-    const present = buildExecutorView({ log: { records: [], refusals: [] }, logPresent: true });
+    const absent = buildExecutorView({ log: { records: [], refusals: [], acknowledged: [] }, logPresent: false });
+    const present = buildExecutorView({ log: { records: [], refusals: [], acknowledged: [] }, logPresent: true });
 
     expect(absent).toEqual({ kind: 'no-dispatches', logPresent: false });
     expect(present).toEqual({ kind: 'no-dispatches', logPresent: true });
@@ -354,7 +354,9 @@ describe('renderExecutor states capacity without claiming to read an account', (
   });
 
   it('says why it has nothing to say when no dispatch needs anybody', () => {
-    const entries = fixtureEntries().filter((entry) => entry.dispatchId === 'd-succeeded');
+    const entries = fixtureEntries().filter(
+      (entry) => 'dispatchId' in entry && entry.dispatchId === 'd-succeeded',
+    );
     const html = flat(
       renderExecutor(buildExecutorView({ log: foldDispatchEntries(entries), logPresent: true }), NOW),
     );
@@ -439,7 +441,7 @@ function declaredOnlyLanes(): LaneDeclaration[] {
 }
 
 function emptyView(lanes: readonly LaneDeclaration[], logPresent = false): ExecutorView {
-  return buildExecutorView({ log: { records: [], refusals: [] }, lanes, logPresent });
+  return buildExecutorView({ log: { records: [], refusals: [], acknowledged: [] }, lanes, logPresent });
 }
 
 describe('a repository that declared lanes and has not dispatched', () => {

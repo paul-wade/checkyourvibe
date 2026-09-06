@@ -6,9 +6,14 @@ import {
   AGENT_AUTHOR,
   REVIEW_DIR,
   addComment,
+  addDraft,
   commentsToExchange,
+  discardDraft,
+  editDraft,
   loadComments,
+  sendDrafts,
   setCommentStatus,
+  unreadByAgent,
 } from '../../../src/dashboard/review/comments.js';
 
 describe('comment store', () => {
@@ -214,5 +219,82 @@ describe('comment store', () => {
     const all = commentsToExchange(store, 10);
     expect(all.entries).toHaveLength(3);
     expect(all.omitted).toBe(0);
+  });
+
+  it('loads drafts written to the store alongside the comments', async () => {
+    await writeStore(
+      JSON.stringify({
+        version: 1,
+        nextId: 2,
+        comments: [],
+        drafts: [{ id: 1, body: 'unsent', author: 'someone', created: 5, refs: { replyTo: 7 } }],
+      }),
+    );
+    const store = await loadComments(repo);
+    expect(store.drafts).toEqual([
+      {
+        id: 1,
+        kind: 'note',
+        file: '',
+        anchor: '',
+        body: 'unsent',
+        author: 'someone',
+        status: 'draft',
+        created: 5,
+        refs: { replyTo: 7 },
+      },
+    ]);
+  });
+
+  it('keeps a draft out of everything the watcher reads', async () => {
+    const draft = await addDraft(repo, { body: 'held back' }, 1000);
+    expect(draft.status).toBe('draft');
+
+    const store = await loadComments(repo);
+    // The watcher, the needs-you list and the exchange all read `comments`.
+    expect(store.comments).toEqual([]);
+    expect(store.drafts).toEqual([draft]);
+    expect(commentsToExchange(store, 10).total).toBe(0);
+    expect(unreadByAgent(store, { cursor: 0, now: 2000 })).toEqual([]);
+  });
+
+  it('sends every draft at once, issuing fresh ids a cursor cannot have passed', async () => {
+    const first = await addComment(repo, { body: 'already sent' }, 100);
+    await addDraft(repo, { body: 'one' }, 200);
+    await addDraft(repo, { body: 'two', refs: { replyTo: first.id } }, 300);
+    // A comment landing while the drafts sit takes a higher id; a watcher
+    // cursor that advanced to it must still see the batch when it is sent.
+    const later = await addComment(repo, { body: 'meanwhile' }, 400);
+
+    const sent = await sendDrafts(repo, 500);
+    expect(sent).toHaveLength(2);
+    expect(sent.every((c) => c.status === 'open')).toBe(true);
+    expect(sent.every((c) => c.id > later.id)).toBe(true);
+    expect(sent[0]?.body).toBe('one');
+    expect(sent[0]?.created).toBe(500);
+    expect(sent[1]?.refs).toEqual({ replyTo: first.id });
+
+    const store = await loadComments(repo);
+    expect(store.drafts ?? []).toEqual([]);
+    expect(store.comments.map((c) => c.id)).toEqual([first.id, later.id, ...sent.map((c) => c.id)]);
+    expect(unreadByAgent(store, { cursor: later.id, now: 600 }).map((entry) => entry.comment.id)).toEqual(
+      sent.map((c) => c.id),
+    );
+  });
+
+  it('edits and discards a draft before it is sent', async () => {
+    const draft = await addDraft(repo, { body: 'first wording' }, 1);
+    const keep = await addDraft(repo, { body: 'keep me' }, 2);
+
+    expect((await editDraft(repo, draft.id, 'better wording'))?.body).toBe('better wording');
+    expect((await loadComments(repo)).drafts?.[0]?.body).toBe('better wording');
+    expect(await editDraft(repo, 99, 'x')).toBeUndefined();
+
+    expect(await discardDraft(repo, draft.id)).toBe(true);
+    expect(await discardDraft(repo, draft.id)).toBe(false);
+
+    const sent = await sendDrafts(repo, 10);
+    expect(sent.map((c) => c.body)).toEqual([keep.body]);
+    expect(await sendDrafts(repo, 11)).toEqual([]);
   });
 });

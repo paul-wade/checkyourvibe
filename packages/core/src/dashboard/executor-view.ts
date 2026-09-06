@@ -391,7 +391,7 @@ export async function readExecutorView(
   repoRoot: string,
   lanes: readonly LaneDeclaration[] = [],
 ): Promise<ExecutorView> {
-  const stats: ReadDispatchStats = { unparseableLines: 0 };
+  const stats = { unparseableLines: 0, unparseableLineNumbers: [] };
   const [log, logPresent] = await Promise.all([
     readDispatchLog(repoRoot, stats),
     logExists(repoRoot),

@@ -554,3 +554,21 @@ describe('renderDashboard never-fired: the clean-codebase case', () => {
     expect(html).not.toContain('That asymmetry is the signal');
   });
 });
+
+import { topNavHtml } from '../../src/dashboard/nav.js';
+
+describe('renderDashboard chrome', () => {
+  it('contains the same tab markup as /lanes, but with /rules active', () => {
+    const debt: DashboardDebtInput = {
+      baseline: null,
+      suppressionsConfigured: false,
+      suppressions: [],
+      repoRoot: '/repo',
+    };
+    const html = renderDashboard(RULES, ['analyzer'], [], undefined, debt);
+    
+    const expectedNav = topNavHtml('repo', '/repo', '/rules');
+    expect(html).toContain(expectedNav);
+  });
+});
+

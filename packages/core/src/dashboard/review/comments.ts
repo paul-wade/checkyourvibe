@@ -39,6 +39,8 @@ export interface CommentRefs {
   task?: string;
   file?: string;
   replyTo?: number;
+  orchestrator?: boolean;
+  deliveredAt?: number;
 }
 
 export interface Comment {
@@ -56,10 +58,35 @@ export interface Comment {
   refs?: CommentRefs;
 }
 
+/**
+ * A note composed in the dashboard and held back from the exchange until its
+ * batch is sent (spec 0051 Requirement 5.2).
+ *
+ * Drafts live beside `comments`, not inside it, on purpose: the comment
+ * watcher and its cursor read `store.comments` only, so a draft can never
+ * reach the agent — and can never be skipped by a cursor that advanced past
+ * its id while it was still invisible. Promotion issues a fresh id at send
+ * time, above any cursor.
+ */
+export interface CommentDraft {
+  id: number;
+  kind: CommentKind;
+  file: string;
+  anchor: string;
+  body: string;
+  author: string;
+  status: 'draft';
+  /** Epoch milliseconds. */
+  created: number;
+  refs?: CommentRefs;
+}
+
 export interface CommentStore {
   version: number;
   nextId: number;
   comments: Comment[];
+  /** Unsent notes; absent in stores written before drafts existed. */
+  drafts?: CommentDraft[];
 }
 
 export interface AddCommentInput {
@@ -70,6 +97,7 @@ export interface AddCommentInput {
   kind?: CommentKind;
   refs?: CommentRefs;
   replyTo?: number | null;
+  orchestrator?: boolean;
 }
 
 function emptyStore(): CommentStore {
@@ -92,10 +120,16 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 function parseRefs(value: unknown, legacyReplyTo: unknown): CommentRefs | undefined {
   const source = isRecord(value) ? value : {};
   const task = asString(source.task);
   const file = asString(source.file);
+  const orchestrator = asBoolean(source.orchestrator);
+  const deliveredAt = asNumber(source.deliveredAt);
   // Stores written before `refs` existed carried `replyTo` at the top level,
   // usually as null. A number there is still a reply and is kept as one.
   const replyTo = asNumber(source.replyTo) ?? asNumber(legacyReplyTo);
@@ -103,11 +137,25 @@ function parseRefs(value: unknown, legacyReplyTo: unknown): CommentRefs | undefi
     ...(task === undefined ? {} : { task }),
     ...(file === undefined ? {} : { file }),
     ...(replyTo === undefined ? {} : { replyTo }),
+    ...(orchestrator === undefined ? {} : { orchestrator }),
+    ...(deliveredAt === undefined ? {} : { deliveredAt }),
   };
   return Object.keys(refs).length > 0 ? refs : undefined;
 }
 
-function parseComment(value: unknown): Comment | undefined {
+/** Every field a comment and a draft share; the status is what sets them apart. */
+interface ParsedFields {
+  id: number;
+  kind: CommentKind;
+  file: string;
+  anchor: string;
+  body: string;
+  author: string;
+  created: number;
+  refs?: CommentRefs;
+}
+
+function parseFields(value: unknown): ParsedFields | undefined {
   if (!isRecord(value)) return undefined;
   const id = asNumber(value.id);
   if (id === undefined) return undefined;
@@ -119,10 +167,25 @@ function parseComment(value: unknown): Comment | undefined {
     anchor: asString(value.anchor) ?? '',
     body: asString(value.body) ?? '',
     author: asString(value.author) ?? DEFAULT_AUTHOR,
-    status: value.status === 'addressed' ? 'addressed' : 'open',
     created: asNumber(value.created) ?? 0,
     ...(refs === undefined ? {} : { refs }),
   };
+}
+
+function parseComment(value: unknown): Comment | undefined {
+  const fields = parseFields(value);
+  if (fields === undefined || !isRecord(value)) return undefined;
+  return {
+    ...fields,
+    status: value.status === 'addressed' ? 'addressed' : 'open',
+  };
+}
+
+/** Anything in the drafts list is a draft; a stored status word is ignored. */
+function parseDraft(value: unknown): CommentDraft | undefined {
+  const fields = parseFields(value);
+  if (fields === undefined) return undefined;
+  return { ...fields, status: 'draft' };
 }
 
 function parseStore(value: unknown): CommentStore | undefined {
@@ -132,11 +195,24 @@ function parseStore(value: unknown): CommentStore | undefined {
     const comment = parseComment(entry);
     if (comment !== undefined) comments.push(comment);
   }
-  const highest = comments.reduce((max, c) => Math.max(max, c.id), 0);
+  const drafts: CommentDraft[] = [];
+  if (isUnknownArray(value.drafts)) {
+    for (const entry of value.drafts) {
+      const draft = parseDraft(entry);
+      if (draft !== undefined) drafts.push(draft);
+    }
+  }
+  const issued = [...comments, ...drafts];
+  const highest = issued.reduce((max, c) => Math.max(max, c.id), 0);
   // A store whose counter fell behind its own records would hand out a
   // duplicate id; the records are the truth about what has been issued.
   const nextId = Math.max(asNumber(value.nextId) ?? 1, highest + 1);
-  return { version: asNumber(value.version) ?? 1, nextId, comments };
+  return {
+    version: asNumber(value.version) ?? 1,
+    nextId,
+    comments,
+    ...(drafts.length === 0 ? {} : { drafts }),
+  };
 }
 
 /** A missing or unreadable store is an empty one: the page must still render. */
@@ -156,9 +232,30 @@ export async function loadComments(repo: string): Promise<CommentStore> {
   return parseStore(parsed) ?? emptyStore();
 }
 
-async function saveStore(repo: string, store: CommentStore): Promise<void> {
+export async function saveStore(repo: string, store: CommentStore): Promise<void> {
   await mkdir(path.join(repo, REVIEW_DIR), { recursive: true });
   await writeFile(storePath(repo), `${JSON.stringify(store, null, 2)}\n`, 'utf8');
+}
+
+function fieldsFromInput(input: AddCommentInput, id: number, now: number): ParsedFields {
+  const refs: CommentRefs = { ...(input.refs ?? {}) };
+  if (input.replyTo !== null && input.replyTo !== undefined && refs.replyTo === undefined) {
+    refs.replyTo = input.replyTo;
+  }
+  if (input.orchestrator !== undefined && refs.orchestrator === undefined) {
+    refs.orchestrator = input.orchestrator;
+  }
+  const author = input.author === undefined || input.author === '' ? DEFAULT_AUTHOR : input.author;
+  return {
+    id,
+    kind: input.kind === 'turn' ? 'turn' : 'note',
+    file: input.file ?? '',
+    anchor: input.anchor ?? '',
+    body: (input.body ?? '').slice(0, BODY_LIMIT),
+    author,
+    created: now,
+    ...(Object.keys(refs).length > 0 ? { refs } : {}),
+  };
 }
 
 export async function addComment(
@@ -167,26 +264,82 @@ export async function addComment(
   now: number,
 ): Promise<Comment> {
   const store = await loadComments(repo);
-  const refs: CommentRefs = { ...(input.refs ?? {}) };
-  if (input.replyTo !== null && input.replyTo !== undefined && refs.replyTo === undefined) {
-    refs.replyTo = input.replyTo;
-  }
-  const author = input.author === undefined || input.author === '' ? DEFAULT_AUTHOR : input.author;
-  const comment: Comment = {
-    id: store.nextId,
-    kind: input.kind === 'turn' ? 'turn' : 'note',
-    file: input.file ?? '',
-    anchor: input.anchor ?? '',
-    body: (input.body ?? '').slice(0, BODY_LIMIT),
-    author,
-    status: 'open',
-    created: now,
-    ...(Object.keys(refs).length > 0 ? { refs } : {}),
-  };
+  const comment: Comment = { ...fieldsFromInput(input, store.nextId, now), status: 'open' };
   store.nextId += 1;
   store.comments.push(comment);
   await saveStore(repo, store);
   return comment;
+}
+
+/** Compose a note without letting the watcher see it: the batch hides in `drafts`. */
+export async function addDraft(
+  repo: string,
+  input: AddCommentInput,
+  now: number,
+): Promise<CommentDraft> {
+  const store = await loadComments(repo);
+  const draft: CommentDraft = { ...fieldsFromInput(input, store.nextId, now), status: 'draft' };
+  store.nextId += 1;
+  store.drafts = [...(store.drafts ?? []), draft];
+  await saveStore(repo, store);
+  return draft;
+}
+
+/** Rewrite an unsent note; the draft keeps its place in the batch. */
+export async function editDraft(
+  repo: string,
+  id: number,
+  body: string,
+): Promise<CommentDraft | undefined> {
+  const store = await loadComments(repo);
+  const draft = (store.drafts ?? []).find((candidate) => candidate.id === id);
+  if (draft === undefined) return undefined;
+  draft.body = body.slice(0, BODY_LIMIT);
+  await saveStore(repo, store);
+  return draft;
+}
+
+/** Remove an unsent note; false when no draft holds the id. */
+export async function discardDraft(repo: string, id: number): Promise<boolean> {
+  const store = await loadComments(repo);
+  const drafts = store.drafts ?? [];
+  if (!drafts.some((candidate) => candidate.id === id)) return false;
+  store.drafts = drafts.filter((candidate) => candidate.id !== id);
+  await saveStore(repo, store);
+  return true;
+}
+
+/**
+ * Promote every draft to open at once: the moment a batch review reaches the
+ * agent (spec 0051 Requirement 5.2). Each note is issued a fresh id at send
+ * time — never its compose-time id — so a watcher cursor that advanced while
+ * the drafts sat hidden cannot have passed them. `created` is the send, not
+ * the compose: a note's wait on the agent starts when the agent can see it.
+ * Returns the comments in the order they entered the exchange.
+ */
+export async function sendDrafts(repo: string, now: number): Promise<Comment[]> {
+  const store = await loadComments(repo);
+  const pending = [...(store.drafts ?? [])].sort((a, b) => a.created - b.created || a.id - b.id);
+  if (pending.length === 0) return [];
+  const sent: Comment[] = pending.map((draft) => {
+    const comment: Comment = {
+      id: store.nextId,
+      kind: draft.kind,
+      file: draft.file,
+      anchor: draft.anchor,
+      body: draft.body,
+      author: draft.author,
+      status: 'open',
+      created: now,
+      ...(draft.refs === undefined ? {} : { refs: draft.refs }),
+    };
+    store.nextId += 1;
+    return comment;
+  });
+  store.comments.push(...sent);
+  store.drafts = [];
+  await saveStore(repo, store);
+  return sent;
 }
 
 /** Anything other than `addressed` reopens the comment; unknown words are not a third state. */
@@ -230,6 +383,8 @@ function toEntry(comment: Comment, read?: ReadState): ExchangeEntry {
     ...(comment.anchor === '' ? {} : { anchor: comment.anchor }),
     ...(task === undefined ? {} : { task }),
     ...(replyTo === undefined ? {} : { replyTo }),
+    ...(comment.refs?.orchestrator === undefined ? {} : { orchestrator: comment.refs.orchestrator }),
+    ...(comment.refs?.deliveredAt === undefined ? {} : { deliveredAt: comment.refs.deliveredAt }),
     ...(readByAgent === undefined ? {} : { readByAgent }),
     ...(readByAgent === false && read !== undefined
       ? { unreadForMs: Math.max(0, read.now - comment.created) }
