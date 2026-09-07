@@ -9,6 +9,14 @@ import type {
   Violation,
 } from '@checkyourvibe/core';
 
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function makeRule(id: string, overrides?: Partial<RuleManifest>): RuleManifest {
   return {
     id,
@@ -69,6 +77,19 @@ describe('parseHookPayload', () => {
     const file = payload.files[0];
     assertDefined(file, 'expected one file in the payload');
     expect(file).toBe('/home/user/checkout/src/components/Widget.tsx');
+  });
+
+  it('asks for a working-tree check when the turn is ending', () => {
+    // Stop carries no tool_input: nothing was edited, the agent is trying to
+    // finish. A file created or moved by a shell command never raised an
+    // Edit or Write event, so the only chance to see it is here.
+    const payload = claudeCodePlugin.parseHookPayload(
+      JSON.stringify({ hook_event_name: 'Stop', cwd: '/home/user/checkout' }),
+    );
+
+    expect(payload.event).toBe('Stop');
+    expect(payload.scope).toBe('working-tree');
+    expect(payload.files).toEqual([]);
   });
 
   it('throws on malformed JSON', () => {
@@ -165,6 +186,37 @@ describe('plan', () => {
     expect(settings.content).toContain('Edit|Write');
     expect(settings.content).toContain('/opt/cyv/bin/cyv hook claude-code');
 
+    // The gate. It was implemented in full and registered by nothing, so no
+    // edit was ever denied while every other check reported a healthy install.
+    // Spec 0059 Requirement 1.1 wants it on the edit tools; Requirement 2.2
+    // wants Bash too, because a hook matching only edits never sees
+    // `echo ... > file.ts`.
+    const parsedSettings: unknown = JSON.parse(settings.content);
+    expect(isRecord(parsedSettings)).toBe(true);
+    if (!isRecord(parsedSettings)) return;
+    const hooks = parsedSettings['hooks'];
+    expect(isRecord(hooks)).toBe(true);
+    if (!isRecord(hooks)) return;
+
+    const preToolUse = hooks['PreToolUse'];
+    expect(isUnknownArray(preToolUse)).toBe(true);
+    if (!isUnknownArray(preToolUse)) return;
+
+    const matchers = preToolUse.flatMap((entry: unknown) =>
+      isRecord(entry) && typeof entry['matcher'] === 'string' ? [entry['matcher']] : [],
+    );
+    expect(matchers).toEqual(['Edit|Write|MultiEdit|Bash']);
+
+    const gateCommands = preToolUse.flatMap((entry: unknown) => {
+      if (!isRecord(entry)) return [];
+      const entryHooks = entry['hooks'];
+      if (!isUnknownArray(entryHooks)) return [];
+      return entryHooks.flatMap((hook: unknown) =>
+        isRecord(hook) && typeof hook['command'] === 'string' ? [hook['command']] : [],
+      );
+    });
+    expect(gateCommands).toEqual(['/opt/cyv/bin/cyv hook claude-code']);
+
     const claudeMd = writes.find((w) => w.path === join(repoRoot, 'CLAUDE.md'));
     assertDefined(claudeMd, 'expected a write for CLAUDE.md');
     expect(claudeMd.strategy).toBe('managed-block');
@@ -259,6 +311,39 @@ describe('formatResult', () => {
     expect(result.stderr).toContain('Widen to `unknown`');
     expect(result.stderr).toContain('because:');
     expect(result.stderr).toContain('rule: no-unknown');
+  });
+
+  // This text is what a denied edit hands back to the model at the moment it
+  // is stopped, so repeating a rule's guidance once per occurrence wastes the
+  // tokens that matter most. Two `any` on one line printed the whole block
+  // twice.
+  it('reports every location but explains each rule once', () => {
+    const guidance = {
+      summary: 'Do not use the `any` type.',
+      why: 'It disables the type checker.',
+      allowedFixes: ['Use a concrete type.'],
+      notFixes: [{ pattern: 'Widen to `unknown`', because: 'It still avoids describing the value.' }],
+    };
+    const at = (line: number): Violation => ({
+      file: 'C:\project\src\index.ts',
+      line,
+      column: 1,
+      ruleId: 'no-any',
+      message: 'Unexpected `any` type.',
+      snippet: 'let x: any;',
+      severity: 'error',
+      guidance,
+    });
+
+    const result = claudeCodePlugin.formatResult([at(5), at(5), at(9)], {
+      files: ['C:\project\src\index.ts'],
+    });
+
+    // Three findings, three location lines: none of them is dropped.
+    expect(result.stderr.match(/no-any Unexpected/g)).toHaveLength(3);
+    // One rule, one explanation.
+    expect(result.stderr.match(/It disables the type checker\./g)).toHaveLength(1);
+    expect(result.stderr.match(/Widen to `unknown`/g)).toHaveLength(1);
   });
 
   // A warning that blocks makes the cheapest way past it deleting the code

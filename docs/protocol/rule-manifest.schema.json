@@ -8,7 +8,7 @@
   "$defs": {
     "NotFix": {
       "title": "NotFix",
-      "description": "A remediation that looks like a fix but trips a different rule.",
+      "description": "A remediation that looks like a fix but names the rule that would report the shortcut, which may be the same rule it was meant to escape.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -23,6 +23,10 @@
         "rule": {
           "type": "string",
           "description": "The rule id this non-fix would trip, when there is one."
+        },
+        "example": {
+          "type": "string",
+          "description": "Source text in which this non-fix has been applied. Required when \"rule\" is set; the conformance suite runs the analyzer on it and requires \"rule\" to report."
         }
       },
       "required": [

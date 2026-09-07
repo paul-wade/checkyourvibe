@@ -80,7 +80,7 @@ function inboundNotFixes(ruleId: string, catalog: RuleManifest[]): InboundNotFix
   const inbound: InboundNotFix[] = [];
   for (const candidate of catalog) {
     for (const notFix of candidate.notFixes) {
-      if (notFix.rule === ruleId) {
+      if (notFix.rule === ruleId && candidate.id !== ruleId) {
         inbound.push({ from: candidate.id, pattern: notFix.pattern, because: notFix.because });
       }
     }

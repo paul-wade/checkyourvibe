@@ -112,11 +112,17 @@ const manifest: RuleManifest = {
       pattern: 'Cast the value so the directive is no longer needed',
       rule: 'no-as-cast',
       because: 'A type assertion overrides the actual type without proof; the runtime value can still mismatch, so the suppressed error reappears as an unchecked cast.',
+      example: `export function getCount(value: unknown): number {
+  return value as number;
+}`,
     },
     {
       pattern: 'Annotate the value as `any` so the error disappears',
       rule: 'no-any',
       because: '`any` removes type information for that value and everything it flows into, which is a broader and more damaging violation than a single suppressed error.',
+      example: `export function getCount(value: unknown): any {
+  return value;
+}`,
     },
   ],
   examples: {

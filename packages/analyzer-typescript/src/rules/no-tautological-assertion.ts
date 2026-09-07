@@ -421,6 +421,14 @@ const manifest: RuleManifest = {
       because:
         'Casts and non-null assertions are effect-free wrappers; they do not change the runtime value, so ' +
         'the comparison is still tautological, and `no-as-cast` or `no-non-null-assertion` will report the wrapper.',
+      example: `declare function it(name: string, fn: () => void): void;
+declare function expect<T>(actual: T): { toBe(expected: T): void };
+
+export function describeCheck(x: number): void {
+  it('is a no-op', () => {
+    expect(x as number).toBe(x);
+  });
+}`,
     },
     {
       pattern: 'Cast the other side with `as` or assert non-null with `!`',
@@ -428,6 +436,14 @@ const manifest: RuleManifest = {
       because:
         'The same value is still being compared to itself; the wrapper only hides the tautology and trips ' +
         '`no-non-null-assertion` instead.',
+      example: `declare function it(name: string, fn: () => void): void;
+declare function expect<T>(actual: T): { toBe(expected: T): void };
+
+export function describeCheck(x: number | undefined): void {
+  it('is a no-op', () => {
+    expect(x).toBe(x!);
+  });
+}`,
     },
   ],
   examples: {

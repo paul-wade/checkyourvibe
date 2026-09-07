@@ -349,3 +349,18 @@ manifest (`id`, `category`, `scope`, `severity`, `summary`, `why`, `allowedFixes
   "exec": { "type": "process", "command": "mylang-analyzer" }
 }
 ```
+
+Each entry in a rule's `notFixes` may also carry `example`: source text, in this analyzer's
+language, in which that tempting non-fix has actually been applied. It is required whenever the
+entry names a `rule` — `cyv verify-analyzer` runs this analyzer on `example` with every rule
+enabled and fails its `notFixClosure` check when the named `rule` does not appear among the
+resulting violations, or when `example` is missing entirely. This turns a notFix's claim — "this
+shortcut trips rule X" — into something the suite proves rather than something the manifest
+merely asserts. A notFix with no `rule` may still carry an `example`, but nothing executes it.
+
+All of an analyzer's examples are analyzed together in a single request, not one request each, so
+keep every `example` self-contained rather than relying on anything another rule's example
+declares; in a language with file-level scoping, write it as its own module (in TypeScript, for
+instance, give it at least one `export`) so its declarations cannot collide with another
+example's. This is a convention to write examples by, not something `notFixClosure` itself
+checks — an example missing an `export` does not fail the check on its own.

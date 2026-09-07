@@ -41,6 +41,10 @@ const COMMANDS: Record<string, CommandEntry> = {
     module: './plan.js',
     summary: "The waves a spec's open tasks fall into: what can run at once.",
   },
+  middle: {
+    module: './middle.js',
+    summary: 'Drive one spec to completion: a brief per open task, dispatched a wave at a time.',
+  },
   comments: {
     module: './comments.js',
     summary: 'Notes the owner left on the dashboard, and a way to write back.',

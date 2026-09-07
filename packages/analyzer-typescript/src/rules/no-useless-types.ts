@@ -97,12 +97,22 @@ const manifest: RuleManifest = {
       rule: 'no-any',
       because:
         'It removes type information entirely and lets any value through without checking, which is a broader and more damaging violation than the original.',
+      example: `export function getValue(): any {
+  return {};
+}`,
     },
     {
       pattern: 'cast the value with `as` or an angle-bracket assertion at the use site to recover the lost shape',
       rule: 'no-as-cast',
       because:
         'Casting asserts a type the value may not have; it does not add the missing type information, it only silences the compiler at that point.',
+      example: `export interface Handler {
+  run(): void;
+}
+
+export function getHandler(value: object): Handler {
+  return value as Handler;
+}`,
     },
     {
       pattern: 'swap `{}` for `object` or `object` for `{}`',

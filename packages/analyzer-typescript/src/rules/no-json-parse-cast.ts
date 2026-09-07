@@ -176,24 +176,43 @@ const manifest: RuleManifest = {
       rule: 'no-as-cast',
       because:
         'A cast asserts a type without proof, so the untrusted value can still have the wrong shape at runtime.',
+      example: `export interface Config {
+  name: string;
+}
+
+export function loadConfig(raw: string): Config {
+  const parsed = JSON.parse(raw);
+  return parsed as Config;
+}`,
     },
     {
       pattern: 'Assert that parsed fields or the whole object are non-null with `!`.',
       rule: 'no-non-null-assertion',
       because:
         'After parsing, the data may be missing fields; `!` asserts they exist without checking, which is the same unchecked claim moved to a different operator.',
+      example: `export function loadName(raw: string): string {
+  const parsed = JSON.parse(raw);
+  return parsed.name!;
+}`,
     },
     {
       pattern: 'Type the result as `any` so no assertion is needed.',
       rule: 'no-any',
       because:
         'Widening to `any` removes the type claim but also removes type checking entirely, which is a broader violation.',
+      example: `export function loadConfig(raw: string): any {
+  return JSON.parse(raw);
+}`,
     },
     {
       pattern: 'Suppress the resulting error with a compiler-directive comment.',
       rule: 'no-ts-comment',
       because:
         'A directive comment hides the type error without validating the value, so the runtime risk remains.',
+      example: `export function loadConfig(raw: string): string {
+  // @ts-ignore
+  return JSON.parse(raw);
+}`,
     },
   ],
   examples: {

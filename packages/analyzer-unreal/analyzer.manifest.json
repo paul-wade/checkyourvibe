@@ -103,7 +103,8 @@
         {
           "pattern": "Remove UPROPERTY() and keep the raw pointer.",
           "because": "Without UPROPERTY the member is invisible to the collector; the object it points at can be collected at any time.",
-          "rule": "gc-untracked-object-member"
+          "rule": "gc-untracked-object-member",
+          "example": "UCLASS()\nclass ANotFixRawPtrActor : public AActor\n{\n    GENERATED_BODY()\n\npublic:\n    UNotFixRawPtrTarget* Target;\n};"
         },
         {
           "pattern": "Change the raw pointer to a reference (UMyClass&).",
@@ -112,7 +113,8 @@
         {
           "pattern": "Wrap the raw pointer in a helper struct that does not itself carry GENERATED_BODY() and UPROPERTY().",
           "because": "A wrapper that is not itself a reflected USTRUCT is still invisible to the collector; the indirection does not add tracking.",
-          "rule": "gc-object-pointer-in-unreflected-type"
+          "rule": "gc-object-pointer-in-unreflected-type",
+          "example": "struct FNotFixWrapperHelper\n{\n    UNotFixWrappedTarget* Target;\n};\n\nUCLASS()\nclass ANotFixWrapperOwnerActor : public AActor\n{\n    GENERATED_BODY()\n\npublic:\n    UPROPERTY()\n    FNotFixWrapperHelper Wrapper;\n};"
         }
       ],
       "examples": {

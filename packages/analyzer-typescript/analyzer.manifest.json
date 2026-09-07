@@ -39,17 +39,20 @@
         {
           "pattern": "cast the value with `as`",
           "rule": "no-as-cast",
-          "because": "It asserts a type without proof; the runtime value can still be anything, and the compiler stops checking it."
+          "because": "It asserts a type without proof; the runtime value can still be anything, and the compiler stops checking it.",
+          "example": "export function readValue(input: unknown): string {\n  return input as string;\n}"
         },
         {
           "pattern": "replace the type with `object` or `{}` to keep the code compiling",
           "rule": "no-useless-types",
-          "because": "Those types look like constraints but accept almost every value, so the underlying problem is still there and no-useless-types will report them."
+          "because": "Those types look like constraints but accept almost every value, so the underlying problem is still there and no-useless-types will report them.",
+          "example": "export function getValue(): object {\n  return {};\n}"
         },
         {
           "pattern": "suppress the error with `// @ts-ignore` or `// @ts-expect-error`",
           "rule": "no-ts-comment",
-          "because": "It silences the type checker rather than replacing the missing type, so later code assumes guarantees that do not exist."
+          "because": "It silences the type checker rather than replacing the missing type, so later code assumes guarantees that do not exist.",
+          "example": "export function parseCount(raw: unknown): number {\n  // @ts-ignore\n  const count: number = raw;\n  return count;\n}"
         }
       ],
       "examples": {
@@ -80,27 +83,32 @@
         {
           "pattern": "Assert the value is non-null with `!` instead of proving it.",
           "rule": "no-non-null-assertion",
-          "because": "It removes the same nullability check the cast was trying to avoid, and is reported by no-non-null-assertion."
+          "because": "It removes the same nullability check the cast was trying to avoid, and is reported by no-non-null-assertion.",
+          "example": "export function getName(value: string | undefined): string {\n  return value!;\n}"
         },
         {
           "pattern": "Move the cast to the result of `JSON.parse` or `response.json()` and annotate the parsed value.",
           "rule": "no-json-parse-cast",
-          "because": "The data still reaches the target type without a runtime check; the cast is simply hidden behind a parser call."
+          "because": "The data still reaches the target type without a runtime check; the cast is simply hidden behind a parser call.",
+          "example": "export interface Config {\n  name: string;\n}\n\nexport function loadConfig(raw: string): Config {\n  const parsed: Config = JSON.parse(raw);\n  return parsed;\n}"
         },
         {
           "pattern": "Suppress the resulting error with a compiler-directive comment such as `@ts-ignore` or `@ts-expect-error`.",
           "rule": "no-ts-comment",
-          "because": "A directive comment hides the type error without changing the actual value, so the mismatch remains at runtime."
+          "because": "A directive comment hides the type error without changing the actual value, so the mismatch remains at runtime.",
+          "example": "export function getTotal(rawTotal: unknown): number {\n  // @ts-ignore\n  const total: number = rawTotal;\n  return total;\n}"
         },
         {
           "pattern": "Annotate the value as `any` so no cast is needed.",
           "rule": "no-any",
-          "because": "Using `any` removes type information altogether, which is a broader and more damaging violation."
+          "because": "Using `any` removes type information altogether, which is a broader and more damaging violation.",
+          "example": "declare function fetchUser(): unknown;\n\nexport function loadUser(): any {\n  return fetchUser();\n}"
         },
         {
           "pattern": "Cast a returned promise to `void` so the call can be used as an expression statement.",
           "rule": "no-floating-promise",
-          "because": "A cast does not await or handle the promise; it only hides the unhandled promise from the type checker, and `void` should be the explicit, documented discard instead."
+          "because": "A cast does not await or handle the promise; it only hides the unhandled promise from the type checker, and `void` should be the explicit, documented discard instead.",
+          "example": "declare function fetchData(): Promise<void>;\n\nexport function run(): void {\n  fetchData() as void;\n}"
         }
       ],
       "examples": {
@@ -128,17 +136,20 @@
         {
           "pattern": "Cast the value to the desired type instead",
           "because": "A cast also bypasses the type checker and is just another way to assert a claim without evidence.",
-          "rule": "no-as-cast"
+          "rule": "no-as-cast",
+          "example": "export function getName(value: string | undefined): string {\n  return value as string;\n}"
         },
         {
           "pattern": "Annotate the value as `any` so the compiler stops asking",
           "because": "Widening to `any` removes type information entirely and hides every future mistake.",
-          "rule": "no-any"
+          "rule": "no-any",
+          "example": "declare function maybeGetName(): string | undefined;\n\nexport function getName(): any {\n  return maybeGetName();\n}"
         },
         {
           "pattern": "Suppress the error with a compiler-directive comment",
           "because": "A directive comment hides the problem from the type checker without removing the runtime risk.",
-          "rule": "no-ts-comment"
+          "rule": "no-ts-comment",
+          "example": "export function getName(value: string | undefined): string {\n  // @ts-ignore\n  return value;\n}"
         },
         {
           "pattern": "Move the `!` from the use site to the field declaration",
@@ -173,12 +184,14 @@
         {
           "pattern": "Cast the value so the directive is no longer needed",
           "rule": "no-as-cast",
-          "because": "A type assertion overrides the actual type without proof; the runtime value can still mismatch, so the suppressed error reappears as an unchecked cast."
+          "because": "A type assertion overrides the actual type without proof; the runtime value can still mismatch, so the suppressed error reappears as an unchecked cast.",
+          "example": "export function getCount(value: unknown): number {\n  return value as number;\n}"
         },
         {
           "pattern": "Annotate the value as `any` so the error disappears",
           "rule": "no-any",
-          "because": "`any` removes type information for that value and everything it flows into, which is a broader and more damaging violation than a single suppressed error."
+          "because": "`any` removes type information for that value and everything it flows into, which is a broader and more damaging violation than a single suppressed error.",
+          "example": "export function getCount(value: unknown): any {\n  return value;\n}"
         }
       ],
       "examples": {
@@ -205,12 +218,14 @@
         {
           "pattern": "replace the type with `any`",
           "rule": "no-any",
-          "because": "It removes type information entirely and lets any value through without checking, which is a broader and more damaging violation than the original."
+          "because": "It removes type information entirely and lets any value through without checking, which is a broader and more damaging violation than the original.",
+          "example": "export function getValue(): any {\n  return {};\n}"
         },
         {
           "pattern": "cast the value with `as` or an angle-bracket assertion at the use site to recover the lost shape",
           "rule": "no-as-cast",
-          "because": "Casting asserts a type the value may not have; it does not add the missing type information, it only silences the compiler at that point."
+          "because": "Casting asserts a type the value may not have; it does not add the missing type information, it only silences the compiler at that point.",
+          "example": "export interface Handler {\n  run(): void;\n}\n\nexport function getHandler(value: object): Handler {\n  return value as Handler;\n}"
         },
         {
           "pattern": "swap `{}` for `object` or `object` for `{}`",
@@ -285,12 +300,14 @@
         {
           "pattern": "Annotate the catch variable as `any` to avoid having to narrow it.",
           "rule": "no-any",
-          "because": "It removes type information and lets the error pass through untouched; the catch block is still swallowing the exception."
+          "because": "It removes type information and lets the error pass through untouched; the catch block is still swallowing the exception.",
+          "example": "declare function loadData(): string;\n\nexport function loadSafely(): string | undefined {\n  try {\n    return loadData();\n  } catch (e: any) {\n    return undefined;\n  }\n}"
         },
         {
           "pattern": "Cast the caught error to a concrete type and leave the block otherwise empty.",
           "rule": "no-as-cast",
-          "because": "A cast asserts a type without proof and does not change the fact that the exception is being ignored."
+          "because": "A cast asserts a type without proof and does not change the fact that the exception is being ignored.",
+          "example": "declare function loadData(): string;\n\nexport function loadSafely(): string | undefined {\n  try {\n    return loadData();\n  } catch (e) {\n    const err = e as Error;\n    return undefined;\n  }\n}"
         },
         {
           "pattern": "Add a comment inside the catch block explaining why the exception is ignored.",
@@ -303,7 +320,8 @@
         {
           "pattern": "Replace the empty catch with a catch that immediately rethrows the same error",
           "rule": "no-broad-catch-rethrow",
-          "because": "Rethrowing the caught error unchanged adds a stack frame without adding context or handling; the exception was already going to propagate."
+          "because": "Rethrowing the caught error unchanged adds a stack frame without adding context or handling; the exception was already going to propagate.",
+          "example": "declare function loadData(): string;\n\nexport function loadSafely(): string {\n  try {\n    return loadData();\n  } catch (e) {\n    throw e;\n  }\n}"
         }
       ],
       "examples": {
@@ -332,27 +350,32 @@
         {
           "pattern": "Cast the promise to `void` or a non-promise type with `as`",
           "rule": "no-as-cast",
-          "because": "A cast does not await or handle the promise; it only hides the return type from the type checker, and the rejection is still unhandled."
+          "because": "A cast does not await or handle the promise; it only hides the return type from the type checker, and the rejection is still unhandled.",
+          "example": "declare function fetchData(): Promise<void>;\n\nexport function run(): void {\n  fetchData() as void;\n}"
         },
         {
           "pattern": "Annotate the surrounding function or variable as `any` so the Promise type is ignored",
           "rule": "no-any",
-          "because": "`any` removes type information and hides the promise from this rule, but the unhandled rejection still happens at runtime."
+          "because": "`any` removes type information and hides the promise from this rule, but the unhandled rejection still happens at runtime.",
+          "example": "declare function fetchData(): Promise<void>;\n\nexport function run(): void {\n  const result: any = fetchData();\n}"
         },
         {
           "pattern": "Suppress the finding with a compiler-directive comment",
           "rule": "no-ts-comment",
-          "because": "A directive comment hides the unhandled promise without adding an `await`, a handler, or an explicit discard."
+          "because": "A directive comment hides the unhandled promise without adding an `await`, a handler, or an explicit discard.",
+          "example": "declare function fetchData(): Promise<void>;\n\nexport function run(): void {\n  // @ts-ignore\n  fetchData();\n}"
         },
         {
           "pattern": "Wrap the call in a try/catch with an empty catch block",
           "rule": "no-swallowed-catch",
-          "because": "A try/catch around an async call cannot catch a promise rejection that happens later; an empty catch swallows synchronous errors and leaves the promise unhandled."
+          "because": "A try/catch around an async call cannot catch a promise rejection that happens later; an empty catch swallows synchronous errors and leaves the promise unhandled.",
+          "example": "declare function fetchData(): Promise<void>;\n\nexport function run(): void {\n  try {\n    fetchData();\n  } catch {}\n}"
         },
         {
           "pattern": "Rethrow the caught error unchanged from a catch block",
           "rule": "no-broad-catch-rethrow",
-          "because": "Rethrowing the same error from a catch adds a stack frame without handling the unhandled promise; the promise is still floating."
+          "because": "Rethrowing the same error from a catch adds a stack frame without handling the unhandled promise; the promise is still floating.",
+          "example": "declare function fetchData(): Promise<void>;\n\nexport function run(): void {\n  try {\n    fetchData();\n  } catch (e) {\n    throw e;\n  }\n}"
         },
         {
           "pattern": "Use `.then(...)` with only an onFulfilled handler",
@@ -361,7 +384,8 @@
         {
           "pattern": "Attach an empty `.catch(() => {})` handler to silence the rejection",
           "rule": "no-swallowed-catch",
-          "because": "The rejection is caught and discarded, so the failure is now invisible instead of loud, which is worse than the floating promise was."
+          "because": "The rejection is caught and discarded, so the failure is now invisible instead of loud, which is worse than the floating promise was.",
+          "example": "declare function fetchData(): Promise<void>;\n\nexport function run(): void {\n  fetchData().catch(() => {});\n}"
         },
         {
           "pattern": "Pass the promise to `Promise.all` and ignore the returned promise",
@@ -400,22 +424,26 @@
         {
           "pattern": "Annotate the catch variable as `any`",
           "rule": "no-any",
-          "because": "It removes type information from the caught error without changing the fact that the catch block does nothing but rethrow."
+          "because": "It removes type information from the caught error without changing the fact that the catch block does nothing but rethrow.",
+          "example": "declare function loadData(): string;\n\nexport function loadSafely(): string {\n  try {\n    return loadData();\n  } catch (e: any) {\n    throw e;\n  }\n}"
         },
         {
           "pattern": "Cast the caught error with `as` before rethrowing",
           "rule": "no-as-cast",
-          "because": "A cast asserts a type without proof; the exception is still rethrown unchanged and the catch frame still adds nothing."
+          "because": "A cast asserts a type without proof; the exception is still rethrown unchanged and the catch frame still adds nothing.",
+          "example": "declare function loadData(): string;\n\nexport function loadSafely(): string {\n  try {\n    return loadData();\n  } catch (e) {\n    throw e as Error;\n  }\n}"
         },
         {
           "pattern": "Remove the `throw` and leave the catch block empty",
           "rule": "no-swallowed-catch",
-          "because": "An empty catch swallows the exception entirely, which is a different and usually worse failure than a useless rethrow."
+          "because": "An empty catch swallows the exception entirely, which is a different and usually worse failure than a useless rethrow.",
+          "example": "declare function loadData(): string;\n\nexport function loadSafely(): string | undefined {\n  try {\n    return loadData();\n  } catch (e) {\n  }\n}"
         },
         {
           "pattern": "Suppress the finding with a compiler-directive comment",
           "rule": "no-ts-comment",
-          "because": "A directive comment hides the useless catch without removing it, so the extra frame and obscured stack remain."
+          "because": "A directive comment hides the useless catch without removing it, so the extra frame and obscured stack remain.",
+          "example": "declare function loadData(): string;\n\nexport function loadSafely(): string {\n  try {\n    return loadData();\n  } catch (e) {\n    // @ts-ignore\n    throw e;\n  }\n}"
         }
       ],
       "examples": {
@@ -445,22 +473,26 @@
         {
           "pattern": "Cast the parsed value with `as` or angle brackets.",
           "rule": "no-as-cast",
-          "because": "A cast asserts a type without proof, so the untrusted value can still have the wrong shape at runtime."
+          "because": "A cast asserts a type without proof, so the untrusted value can still have the wrong shape at runtime.",
+          "example": "export interface Config {\n  name: string;\n}\n\nexport function loadConfig(raw: string): Config {\n  const parsed = JSON.parse(raw);\n  return parsed as Config;\n}"
         },
         {
           "pattern": "Assert that parsed fields or the whole object are non-null with `!`.",
           "rule": "no-non-null-assertion",
-          "because": "After parsing, the data may be missing fields; `!` asserts they exist without checking, which is the same unchecked claim moved to a different operator."
+          "because": "After parsing, the data may be missing fields; `!` asserts they exist without checking, which is the same unchecked claim moved to a different operator.",
+          "example": "export function loadName(raw: string): string {\n  const parsed = JSON.parse(raw);\n  return parsed.name!;\n}"
         },
         {
           "pattern": "Type the result as `any` so no assertion is needed.",
           "rule": "no-any",
-          "because": "Widening to `any` removes the type claim but also removes type checking entirely, which is a broader violation."
+          "because": "Widening to `any` removes the type claim but also removes type checking entirely, which is a broader violation.",
+          "example": "export function loadConfig(raw: string): any {\n  return JSON.parse(raw);\n}"
         },
         {
           "pattern": "Suppress the resulting error with a compiler-directive comment.",
           "rule": "no-ts-comment",
-          "because": "A directive comment hides the type error without validating the value, so the runtime risk remains."
+          "because": "A directive comment hides the type error without validating the value, so the runtime risk remains.",
+          "example": "export function loadConfig(raw: string): string {\n  // @ts-ignore\n  return JSON.parse(raw);\n}"
         }
       ],
       "examples": {
@@ -487,17 +519,20 @@
         {
           "pattern": "Silence the possible-undefined error with a non-null assertion (`!`).",
           "rule": "no-non-null-assertion",
-          "because": "It tells the compiler to trust that the value is defined, but a missing element or an out-of-bounds index can still produce `undefined` at runtime."
+          "because": "It tells the compiler to trust that the value is defined, but a missing element or an out-of-bounds index can still produce `undefined` at runtime.",
+          "example": "export function firstOf(arr: string[], i: number): string {\n  return arr[i]!;\n}"
         },
         {
           "pattern": "Cast the result to the non-nullable type with `as` or angle brackets.",
           "rule": "no-as-cast",
-          "because": "A cast asserts the type without proof; an out-of-bounds or missing key can still produce `undefined`."
+          "because": "A cast asserts the type without proof; an out-of-bounds or missing key can still produce `undefined`.",
+          "example": "export function firstOf(arr: string[], i: number): string {\n  return arr[i] as string;\n}"
         },
         {
           "pattern": "Widen the value or the array to `any` so the index access is allowed.",
           "rule": "no-any",
-          "because": "It removes all type information and simply moves the crash to a different line, because a missing element is still `undefined` at runtime."
+          "because": "It removes all type information and simply moves the crash to a different line, because a missing element is still `undefined` at runtime.",
+          "example": "export function firstOf(arr: any[], i: number): string {\n  return arr[i];\n}"
         },
         {
           "pattern": "Rely on the element being present because it was set earlier.",
@@ -506,7 +541,8 @@
         {
           "pattern": "Write a default value to the index without first checking that the slot exists",
           "rule": "no-non-null-index-write",
-          "because": "Writing to an index without a guard does not prove the slot exists; it may create a hole in an array or silently add a key to a record."
+          "because": "Writing to an index without a guard does not prove the slot exists; it may create a hole in an array or silently add a key to a record.",
+          "example": "export function setDefault(arr: string[], i: number): void {\n  arr[i] = 'default';\n}"
         }
       ],
       "examples": {
@@ -531,22 +567,26 @@
         {
           "pattern": "Cast the narrowed value to `unknown[]` with `as` or angle brackets to recover a safe element type.",
           "rule": "no-as-cast",
-          "because": "A cast asserts the type without proof; at runtime the value is still `any[]`, and the compiler stops checking element accesses."
+          "because": "A cast asserts the type without proof; at runtime the value is still `any[]`, and the compiler stops checking element accesses.",
+          "example": "export function readFirst(value: unknown): unknown[] {\n  if (Array.isArray(value)) {\n    return value as unknown[];\n  }\n  return [];\n}"
         },
         {
           "pattern": "Use the non-null assertion operator `!` to treat the value as an array or an element as present.",
           "rule": "no-non-null-assertion",
-          "because": "`!` removes a check without proving the value is an array or that an element has the expected type."
+          "because": "`!` removes a check without proving the value is an array or that an element has the expected type.",
+          "example": "export function readFirst(value: unknown): unknown {\n  if (Array.isArray(value)) {\n    return value[0]!;\n  }\n  return undefined;\n}"
         },
         {
           "pattern": "Widen the argument to `any` so the type guard succeeds without a complaint.",
           "rule": "no-any",
-          "because": "`any` already removes type checking; making the argument `any` only hides the `Array.isArray` call in a wider untyped surface."
+          "because": "`any` already removes type checking; making the argument `any` only hides the `Array.isArray` call in a wider untyped surface.",
+          "example": "export function readFirst(value: any): unknown {\n  if (Array.isArray(value)) {\n    return value[0];\n  }\n  return undefined;\n}"
         },
         {
           "pattern": "Suppress the error with `// @ts-ignore` or `// @ts-expect-error`.",
           "rule": "no-ts-comment",
-          "because": "A directive comment hides the narrowing to `any[]` without replacing it with a safe guard."
+          "because": "A directive comment hides the narrowing to `any[]` without replacing it with a safe guard.",
+          "example": "export function readFirst(value: unknown): unknown {\n  // @ts-ignore\n  if (Array.isArray(value)) {\n    return value[0];\n  }\n  return undefined;\n}"
         }
       ],
       "examples": {
@@ -573,27 +613,32 @@
         {
           "pattern": "Use a non-null assertion on the read side to claim the slot exists",
           "rule": "no-non-null-assertion",
-          "because": "A non-null assertion does not prove the slot exists; it only tells the compiler to trust that it does, and the write can still land on a missing index."
+          "because": "A non-null assertion does not prove the slot exists; it only tells the compiler to trust that it does, and the write can still land on a missing index.",
+          "example": "export function readAfterWrite(arr: string[], i: number): string {\n  arr[i] = 'x';\n  return arr[i]!;\n}"
         },
         {
           "pattern": "Cast the index to a narrower type with `as`",
           "rule": "no-as-cast",
-          "because": "Casting the index does not change the actual range of the value; an out-of-bounds or missing slot can still be written."
+          "because": "Casting the index does not change the actual range of the value; an out-of-bounds or missing slot can still be written.",
+          "example": "export function writeAt(arr: string[], i: number | string): void {\n  arr[i as number] = 'x';\n}"
         },
         {
           "pattern": "Widen the array or tuple to `any` so the index write is not checked",
           "rule": "no-any",
-          "because": "`any` removes all type information and simply moves the out-of-bounds or missing-slot risk to runtime without a compile-time guard."
+          "because": "`any` removes all type information and simply moves the out-of-bounds or missing-slot risk to runtime without a compile-time guard.",
+          "example": "export function writeAt(arr: any[], i: number): void {\n  arr[i] = 'x';\n}"
         },
         {
           "pattern": "Suppress the finding with a compiler-directive comment",
           "rule": "no-ts-comment",
-          "because": "A directive comment hides the unchecked write without adding a guard, so the runtime risk of writing to a missing slot remains."
+          "because": "A directive comment hides the unchecked write without adding a guard, so the runtime risk of writing to a missing slot remains.",
+          "example": "export function writeAt(arr: string[], i: number): void {\n  // @ts-ignore\n  arr[i] = 'x';\n}"
         },
         {
           "pattern": "Use `Array.isArray` on an `any` or `unknown` value to justify the index write",
           "rule": "no-unsafe-array-narrowing",
-          "because": "`Array.isArray` narrows `unknown` to `any[]`, so the element write is still unchecked and the rule no-unsafe-array-narrowing will fire."
+          "because": "`Array.isArray` narrows `unknown` to `any[]`, so the element write is still unchecked and the rule no-unsafe-array-narrowing will fire.",
+          "example": "export function writeAt(value: unknown, i: number): void {\n  if (Array.isArray(value)) {\n    value[i] = 'x';\n  }\n}"
         }
       ],
       "examples": {
@@ -627,12 +672,14 @@
         {
           "pattern": "Cast one side with `as` or assert non-null with `!` to make the two expressions look different",
           "rule": "no-as-cast",
-          "because": "Casts and non-null assertions are effect-free wrappers; they do not change the runtime value, so the comparison is still tautological, and `no-as-cast` or `no-non-null-assertion` will report the wrapper."
+          "because": "Casts and non-null assertions are effect-free wrappers; they do not change the runtime value, so the comparison is still tautological, and `no-as-cast` or `no-non-null-assertion` will report the wrapper.",
+          "example": "declare function it(name: string, fn: () => void): void;\ndeclare function expect<T>(actual: T): { toBe(expected: T): void };\n\nexport function describeCheck(x: number): void {\n  it('is a no-op', () => {\n    expect(x as number).toBe(x);\n  });\n}"
         },
         {
           "pattern": "Cast the other side with `as` or assert non-null with `!`",
           "rule": "no-non-null-assertion",
-          "because": "The same value is still being compared to itself; the wrapper only hides the tautology and trips `no-non-null-assertion` instead."
+          "because": "The same value is still being compared to itself; the wrapper only hides the tautology and trips `no-non-null-assertion` instead.",
+          "example": "declare function it(name: string, fn: () => void): void;\ndeclare function expect<T>(actual: T): { toBe(expected: T): void };\n\nexport function describeCheck(x: number | undefined): void {\n  it('is a no-op', () => {\n    expect(x).toBe(x!);\n  });\n}"
         }
       ],
       "examples": {
@@ -658,17 +705,20 @@
         {
           "pattern": "Assert the member at each use site with `as`.",
           "because": "An assertion tells the compiler to accept a type it did not derive. The declaring file still does not mention the member, and every new use site needs its own assertion to keep compiling.",
-          "rule": "no-as-cast"
+          "rule": "no-as-cast",
+          "example": "export interface Extra {\n  liveness?: string;\n}\n\nexport function readLiveness(value: object): string | undefined {\n  return (value as Extra).liveness;\n}"
         },
         {
           "pattern": "Type the value `any` so the member is reachable.",
           "because": "`any` disables checking on that value entirely, so the added member resolves — and so does every misspelling of it.",
-          "rule": "no-any"
+          "rule": "no-any",
+          "example": "export function readLiveness(value: any): string | undefined {\n  return value.liveness;\n}"
         },
         {
           "pattern": "Silence the resulting property error with a compiler directive.",
           "because": "A directive suppresses one diagnostic on one line and leaves the type unchanged, so the next reader meets the same error with no record of why it was accepted.",
-          "rule": "no-ts-comment"
+          "rule": "no-ts-comment",
+          "example": "export function readLiveness(value: object): string | undefined {\n  // @ts-ignore\n  return value.liveness;\n}"
         },
         {
           "pattern": "Keep the augmentation and make its members required rather than optional.",

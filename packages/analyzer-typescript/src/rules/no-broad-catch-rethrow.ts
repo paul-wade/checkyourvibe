@@ -74,24 +74,60 @@ const manifest: RuleManifest = {
       rule: 'no-any',
       because:
         'It removes type information from the caught error without changing the fact that the catch block does nothing but rethrow.',
+      example: `declare function loadData(): string;
+
+export function loadSafely(): string {
+  try {
+    return loadData();
+  } catch (e: any) {
+    throw e;
+  }
+}`,
     },
     {
       pattern: 'Cast the caught error with `as` before rethrowing',
       rule: 'no-as-cast',
       because:
         'A cast asserts a type without proof; the exception is still rethrown unchanged and the catch frame still adds nothing.',
+      example: `declare function loadData(): string;
+
+export function loadSafely(): string {
+  try {
+    return loadData();
+  } catch (e) {
+    throw e as Error;
+  }
+}`,
     },
     {
       pattern: 'Remove the `throw` and leave the catch block empty',
       rule: 'no-swallowed-catch',
       because:
         'An empty catch swallows the exception entirely, which is a different and usually worse failure than a useless rethrow.',
+      example: `declare function loadData(): string;
+
+export function loadSafely(): string | undefined {
+  try {
+    return loadData();
+  } catch (e) {
+  }
+}`,
     },
     {
       pattern: 'Suppress the finding with a compiler-directive comment',
       rule: 'no-ts-comment',
       because:
         'A directive comment hides the useless catch without removing it, so the extra frame and obscured stack remain.',
+      example: `declare function loadData(): string;
+
+export function loadSafely(): string {
+  try {
+    return loadData();
+  } catch (e) {
+    // @ts-ignore
+    throw e;
+  }
+}`,
     },
   ],
   examples: {

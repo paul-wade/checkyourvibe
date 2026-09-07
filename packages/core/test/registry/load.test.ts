@@ -79,6 +79,31 @@ describe('loadAnalyzerManifest', () => {
     }
   });
 
+  it("propagates a notFix's example field instead of dropping it", async () => {
+    const repoRoot = await realpath(await mkdtemp(path.join(tmpdir(), 'cyv-registry-')));
+    try {
+      const manifestPath = path.join(repoRoot, 'analyzer.manifest.json');
+      const ruleWithExample: RuleManifest = {
+        ...validRule(),
+        notFixes: [{ pattern: 'p', because: 'b', rule: 'rule-1', example: 'const x = 1; // BAD_MARKER' }],
+      };
+      await writeFile(
+        manifestPath,
+        JSON.stringify(manifestJson('ts', ['**/*.ts'], { rules: [ruleWithExample] })),
+        'utf-8',
+      );
+
+      const manifest = await loadAnalyzerManifest('analyzer.manifest.json', repoRoot);
+
+      expect(manifest.rules).toHaveLength(1);
+      expect(manifest.rules[0]?.notFixes).toEqual([
+        { pattern: 'p', because: 'b', rule: 'rule-1', example: 'const x = 1; // BAD_MARKER' },
+      ]);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it('rejects a manifest with the wrong protocol version', async () => {
     const repoRoot = await realpath(await mkdtemp(path.join(tmpdir(), 'cyv-registry-')));
     try {

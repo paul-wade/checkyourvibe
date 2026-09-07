@@ -267,15 +267,19 @@ describe('cyv end-to-end', () => {
 
     const settingsRaw = await readFile(join(homeDir, '.claude', 'settings.json'), 'utf-8');
 
-    // Three entries carry this string: the analyzer's PostToolUse hook, the
-    // notes PostToolUse hook, and the notes Stop hook that refuses to end a
-    // turn with an unread note (spec 0042 Requirements 1.1, 1.2). Two of the
-    // three are the notes command, which contains the analyzer's marker as a
+    // Eight entries carry this string: the PreToolUse gate, the analyzer's
+    // PostToolUse hook, the
+    // notes PostToolUse hook, the notes Stop hook that refuses to end a turn
+    // with an unread note (spec 0042 Requirements 1.1, 1.2), the analyzer's own
+    // Stop hook, and the three turn-boundary events — SessionStart,
+    // UserPromptSubmit and SessionEnd — recorded so the dashboard can tell a
+    // live session from a stale one without asking the model. Two of the seven
+    // are the notes command, which contains the analyzer's marker as a
     // substring — that overlap is deliberate here, because one marker owning
     // both means an upgrade cannot orphan either.
     //
     // The number is what this test is for: a second `init` must not grow it.
-    expect(settingsRaw.split('hook claude-code').length - 1).toBe(3);
+    expect(settingsRaw.split('hook claude-code').length - 1).toBe(8);
     expect(settingsRaw.split('comments --hook claude-code').length - 1).toBe(2);
   }, 15_000);
 
@@ -498,6 +502,43 @@ describe('baseline-aware pre-commit hook', () => {
     const log = execFileSync('git', ['log', '--oneline'], { cwd: repo, encoding: 'utf-8' });
     expect(log.trim().split('\n')).toHaveLength(2);
   }, 15_000);
+});
+
+describe('cyv check --working sees files nobody has added yet', () => {
+  it(
+    'reports a violation in an untracked file, and does not throw on an unborn repository',
+    async () => {
+      // The `Stop` hook falls back to the working tree because a file created by
+      // a shell command raises no edit event, and such a file is untracked. When
+      // this mode listed only tracked changes it could not see the one thing it
+      // was added to catch: an enforced run finished carrying sixteen violations
+      // in two files created outside the editor, and reported success.
+      const parent = await mkdtemp(join(tmpdir(), 'cyv-e2e-working-untracked-'));
+      const repoDir = join(parent, 'repo');
+      await mkdir(repoDir, { recursive: true });
+      git(repoDir, ['init']);
+      git(repoDir, ['config', 'user.email', 'e2e@example.com']);
+      git(repoDir, ['config', 'user.name', 'E2E Test']);
+
+      await mkdir(join(repoDir, 'src'), { recursive: true });
+      await writeCheckYourVibeConfig(repoDir);
+      // Never added, and there is no HEAD to diff against either.
+      await writeFile(join(repoDir, 'src', 'thing.ts'), VIOLATION_SOURCE);
+
+      const homeParent = await mkdtemp(join(tmpdir(), 'cyv-e2e-working-home-'));
+      const result = runCli(repoDir, ['check', '--working'], homeParent);
+
+      try {
+        expect(result.stderr).not.toContain('merge-base');
+        expect(result.code).toBe(1);
+        expect(`${result.stdout}${result.stderr}`).toContain('no-any');
+      } finally {
+        await rm(parent, { recursive: true, force: true });
+        await rm(homeParent, { recursive: true, force: true });
+      }
+    },
+    15_000,
+  );
 });
 
 describe('known gap: cyv check --staged on an unborn repository', () => {

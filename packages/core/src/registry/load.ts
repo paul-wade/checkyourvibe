@@ -707,11 +707,13 @@ function toRule(value: unknown, analyzerId: string, index: number): RuleManifest
   return rule;
 }
 
-function toNotFixes(value: unknown): { pattern: string; because: string; rule?: string }[] | undefined {
+function toNotFixes(
+  value: unknown,
+): { pattern: string; because: string; rule?: string; example?: string }[] | undefined {
   if (!isUnknownArray(value)) {
     return undefined;
   }
-  const result: { pattern: string; because: string; rule?: string }[] = [];
+  const result: { pattern: string; because: string; rule?: string; example?: string }[] = [];
   for (let i = 0; i < value.length; i++) {
     const raw: unknown = value[i];
     if (!isRecord(raw)) {
@@ -723,12 +725,18 @@ function toNotFixes(value: unknown): { pattern: string; because: string; rule?: 
     if (typeof pattern !== 'string' || typeof because !== 'string') {
       return undefined;
     }
-    const notFix: { pattern: string; because: string; rule?: string } = { pattern, because };
+    const notFix: { pattern: string; because: string; rule?: string; example?: string } = { pattern, because };
     if (n.rule !== undefined) {
       if (typeof n.rule !== 'string') {
         return undefined;
       }
       notFix.rule = n.rule;
+    }
+    if (n.example !== undefined) {
+      if (typeof n.example !== 'string') {
+        return undefined;
+      }
+      notFix.example = n.example;
     }
     result.push(notFix);
   }

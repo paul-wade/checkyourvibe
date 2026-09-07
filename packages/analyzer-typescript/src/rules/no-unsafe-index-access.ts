@@ -202,18 +202,27 @@ const manifest: RuleManifest = {
       rule: 'no-non-null-assertion',
       because:
         'It tells the compiler to trust that the value is defined, but a missing element or an out-of-bounds index can still produce `undefined` at runtime.',
+      example: `export function firstOf(arr: string[], i: number): string {
+  return arr[i]!;
+}`,
     },
     {
       pattern: 'Cast the result to the non-nullable type with `as` or angle brackets.',
       rule: 'no-as-cast',
       because:
         'A cast asserts the type without proof; an out-of-bounds or missing key can still produce `undefined`.',
+      example: `export function firstOf(arr: string[], i: number): string {
+  return arr[i] as string;
+}`,
     },
     {
       pattern: 'Widen the value or the array to `any` so the index access is allowed.',
       rule: 'no-any',
       because:
         'It removes all type information and simply moves the crash to a different line, because a missing element is still `undefined` at runtime.',
+      example: `export function firstOf(arr: any[], i: number): string {
+  return arr[i];
+}`,
     },
     {
       pattern: 'Rely on the element being present because it was set earlier.',
@@ -225,6 +234,9 @@ const manifest: RuleManifest = {
       rule: 'no-non-null-index-write',
       because:
         'Writing to an index without a guard does not prove the slot exists; it may create a hole in an array or silently add a key to a record.',
+      example: `export function setDefault(arr: string[], i: number): void {
+  arr[i] = 'default';
+}`,
     },
   ],
   examples: {

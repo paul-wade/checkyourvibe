@@ -37,13 +37,15 @@
       "notFixes": [
         {
           "pattern": "Replace `.unwrap()` with `.expect(\"...\")`",
-          "because": "`.expect()` still panics on `Err` or `None`; adding a message only changes the text of the panic. It is the same abort and is caught by the rule against panics in library code.",
-          "rule": "no-panic-in-library"
+          "because": "`.expect()` still panics on `Err` or `None`; adding a message only changes the text of the panic. It does not even escape this rule: `.expect()` is matched by the same check as `.unwrap()`, so this same rule reports it again.",
+          "rule": "no-unwrap",
+          "example": "fn load_via_expect() {\n    may_load_via_expect().expect(\"load failed\");\n}"
         },
         {
           "pattern": "Force the value out with `.unwrap_unchecked()` or a raw pointer inside an `unsafe` block",
           "because": "This trades a recoverable error for undefined behavior or an unchecked invariant. It does not handle the failure; it removes the check that was catching it.",
-          "rule": "no-unsafe-block"
+          "rule": "no-unsafe-block",
+          "example": "fn load_unchecked() -> i32 {\n    unsafe { fetch_value().unwrap_unchecked() }\n}"
         }
       ],
       "examples": {
@@ -69,12 +71,14 @@
         {
           "pattern": "Return a `Result::Err` and `.unwrap()` it at the call site",
           "because": "The panic is still reachable at the call site through `.unwrap()`; it has just moved across a function boundary.",
-          "rule": "no-unwrap"
+          "rule": "no-unwrap",
+          "example": "fn parse_input(input: &str) -> Result<i32, String> {\n    Err(format!(\"cannot parse {input}\"))\n}\n\nfn call_parse_input() {\n    parse_input(\"bad\").unwrap();\n}"
         },
         {
           "pattern": "Use `unsafe { std::hint::unreachable_unchecked() }` or other unsafe code to avoid the panic",
           "because": "It removes the runtime check and promises the compiler the branch cannot happen. If that promise is wrong, the program has undefined behavior instead of a clean panic.",
-          "rule": "no-unsafe-block"
+          "rule": "no-unsafe-block",
+          "example": "fn assume_valid(input: &str) -> i32 {\n    unsafe { std::hint::unreachable_unchecked() }\n}"
         }
       ],
       "examples": {
@@ -129,12 +133,14 @@
         {
           "pattern": "Call `.unwrap()` on the result and discard it with `let _ = result.unwrap();`",
           "because": "It discards the success value and panics on the error, so the failure is still unhandled and now also aborts the program.",
-          "rule": "no-unwrap"
+          "rule": "no-unwrap",
+          "example": "fn discard_via_unwrap() {\n    let _ = save_record().unwrap();\n}"
         },
         {
           "pattern": "Wrap the call in an `unsafe` block to bypass the `Result` check",
           "because": "Using `unsafe` to suppress the result type removes the compiler's error handling without producing a real value; the ignored result remains ignored and the code gains an unsound justification.",
-          "rule": "no-unsafe-block"
+          "rule": "no-unsafe-block",
+          "example": "fn discard_via_unsafe() {\n    let _ = unsafe { save_record_unsafely() };\n}"
         }
       ],
       "examples": {

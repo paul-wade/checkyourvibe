@@ -136,6 +136,23 @@ async function plan(ctx: PlanContext): Promise<PlannedWrite[]> {
   const settingsContent = JSON.stringify(
     {
       hooks: {
+        // The gate. `PreToolUse` fires before the tool runs, so a `deny`
+        // decision stops the write from happening at all — the one layer that
+        // does not depend on the model agreeing. `PostToolUse` below stays as
+        // the record of what happened; enforcement and evidence are different
+        // jobs and spec 0059 Requirement 1.3 wants both.
+        //
+        // The matcher spans the edit tools and `Bash`, because a hook matching
+        // only edits never sees `echo ... > file.ts`. That is an escape route
+        // in exactly the sense this project's notFixes describe (spec 0059
+        // Requirement 2.2), and `decidePreToolUse` already inspects shell
+        // command lines for it.
+        PreToolUse: [
+          {
+            matcher: 'Edit|Write|MultiEdit|Bash',
+            hooks: [{ type: 'command', command: hookCommand }],
+          },
+        ],
         PostToolUse: [
           {
             matcher: 'Edit|Write',
@@ -150,7 +167,28 @@ async function plan(ctx: PlanContext): Promise<PlannedWrite[]> {
         // contract among the six agents that can hold a turn open until a note
         // has been read (Requirement 1.2). Without it a note left while the
         // agent was mid-task waits for the next edit, and there may not be one.
-        Stop: [{ hooks: [{ type: 'command', command: notesCommand }] }],
+        // The analyzer runs here too, over the working tree rather than one
+        // file. `PostToolUse` only fires for Edit and Write, so a file created
+        // or moved by a shell command is never checked — and a refactor is
+        // mostly shell commands. Observed on a real build: the analyzer blocked
+        // three times while files were being written, then the refactor stage
+        // moved that code into new files and shipped thirty-six violations the
+        // hook had never been shown. `Stop` can refuse to end a turn, so this
+        // is the last point at which that is still fixable.
+        Stop: [
+          { hooks: [{ type: 'command', command: notesCommand }] },
+          { hooks: [{ type: 'command', command: hookCommand }] },
+        ],
+        // Turn boundaries, recorded so the dashboard can say whether a session
+        // is live without asking the model. A self-report is only written when
+        // the model remembers to write it, and it goes stale in silence — the
+        // dashboard once showed a six-day-old "healthy" as a current state.
+        // These fire from the runtime, so they cannot be forgotten. The hook
+        // appends one line and exits; `Stop` above already carries the same
+        // recording alongside its analysis.
+        SessionStart: [{ hooks: [{ type: 'command', command: hookCommand }] }],
+        UserPromptSubmit: [{ hooks: [{ type: 'command', command: hookCommand }] }],
+        SessionEnd: [{ hooks: [{ type: 'command', command: hookCommand }] }],
       },
     },
     null,
@@ -231,6 +269,17 @@ function parseHookPayload(raw: string): HookPayload {
     throw new Error('Claude Code PostToolUse payload is not a JSON object.');
   }
 
+  // `Stop` carries no `tool_input`: nothing was edited, the agent is trying to
+  // end its turn. That is the only moment a file created or moved by a shell
+  // command can be examined at all, because such a file never raised an Edit or
+  // Write event and so was never checked. Every other adapter already falls
+  // back to a working-tree scope; this one threw here instead, which left a
+  // refactor performed with `mv` completely unchecked.
+  const stopEvent = parsed['hook_event_name'];
+  if (stopEvent === 'Stop' || stopEvent === 'SubagentStop') {
+    return { files: [], event: stopEvent, scope: 'working-tree' };
+  }
+
   const toolInput = parsed['tool_input'];
   if (!isJSONObject(toolInput)) {
     throw new Error('Claude Code PostToolUse payload has no tool_input object.');
@@ -268,10 +317,16 @@ function formatResult(violations: Violation[], ctx: FormatContext): HookResult {
   }
 
   const parts: string[] = [];
+  // Every location is worth reporting; the guidance behind a rule is not worth
+  // repeating. Two `any` on one line used to print the whole no-any block
+  // twice, and this text is what a denied edit hands back to the model at the
+  // moment it is stopped — the place where wasted tokens cost the most.
+  const explained = new Set<string>();
   for (const violation of violations) {
     parts.push(`${violation.file}:${violation.line} ${violation.ruleId} ${violation.message}`);
 
-    if (violation.guidance !== undefined) {
+    if (violation.guidance !== undefined && !explained.has(violation.ruleId)) {
+      explained.add(violation.ruleId);
       parts.push(`  ${violation.guidance.summary}`);
       parts.push(`  Why: ${violation.guidance.why}`);
 

@@ -28,7 +28,9 @@ function analyzerManifest(): unknown {
         summary: 'summary for rule-a',
         why: 'why for rule-a',
         allowedFixes: ['fix rule-a'],
-        notFixes: [],
+        notFixes: [
+          { pattern: 'self-referencing shortcut', because: 'would be its own inbound', rule: 'rule-a' },
+        ],
         examples: { bad: 'bad a', good: 'good a' },
       },
       {
@@ -198,6 +200,21 @@ describe('cyv explain <rule> — inbound notFixes', () => {
       expect(output).toContain('Inbound notFixes (other rules that would trip this one)');
       const inboundIndex = output.indexOf('Inbound notFixes');
       expect(output.slice(inboundIndex)).toContain('None recorded.');
+    } finally {
+      captured.restore();
+    }
+  });
+
+  it('excludes a notFix that names the rule being explained', async () => {
+    const repo = await makeConfiguredRepo();
+    const captured = captureConsole();
+    try {
+      await command.run(context(repo, ['rule-a']));
+      const output = captured.logs.join('\n');
+      const inboundIndex = output.indexOf('Inbound notFixes');
+      expect(output.slice(inboundIndex)).toContain('rule-b: tempting shortcut — still wrong');
+      expect(output.slice(inboundIndex)).not.toContain('self-referencing shortcut');
+      expect(output.slice(inboundIndex)).not.toContain('rule-a:');
     } finally {
       captured.restore();
     }

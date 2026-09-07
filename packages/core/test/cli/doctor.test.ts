@@ -190,6 +190,16 @@ async function declareLanes(repo: string, executor: ExecutorConfig): Promise<voi
   await writeFile(path, JSON.stringify({ ...parsed, executor }, null, 2));
 }
 
+/** Names the agents the repository configures, so a lane may reference one. */
+async function configureAgents(repo: string, agents: string[]): Promise<void> {
+  const path = join(repo, CONFIG_FILE);
+  const parsed: unknown = JSON.parse(await readFile(path, 'utf-8'));
+  if (!isRecord(parsed)) {
+    throw new Error(`${CONFIG_FILE} is not an object`);
+  }
+  await writeFile(path, JSON.stringify({ ...parsed, agents }, null, 2));
+}
+
 /** Two flat-rate lanes and one metered one, all backed by `agentId`. */
 function laneFixture(agentId: string): ExecutorConfig {
   return {
@@ -303,6 +313,125 @@ describe('cyv doctor', () => {
       expect(output).toContain(bogusCommand);
       expect(output).toContain('no longer exists');
       expect(code).toBe(1);
+    } finally {
+      captured.restore();
+      await cleanup(repo, homeDir);
+    }
+  });
+
+  // The gate was implemented in full and registered by nothing, and doctor
+  // reported a healthy install the whole time. An absent gate means nothing is
+  // enforced, so it has to be said out loud.
+  it('reports a missing PreToolUse gate and exits 1', async () => {
+    const { repo, homeDir } = await initializedRepo();
+    const captured = captureConsole();
+
+    try {
+      const settingsPath = join(homeDir, '.claude', 'settings.json');
+      const parsed: unknown = JSON.parse(await readFile(settingsPath, 'utf-8'));
+      if (typeof parsed !== 'object' || parsed === null) throw new Error('unexpected settings shape');
+      const hooks: unknown = Reflect.get(parsed, 'hooks');
+      if (typeof hooks !== 'object' || hooks === null) throw new Error('expected a hooks object');
+
+      // It was there after init; removing it is what this test is about.
+      expect(Reflect.has(hooks, 'PreToolUse')).toBe(true);
+      Reflect.deleteProperty(hooks, 'PreToolUse');
+      await writeFile(settingsPath, JSON.stringify(parsed, null, 2));
+
+      const code = await doctorCommand.run(context(repo, [], homeDir));
+      const output = captured.logs.join('\n');
+
+      expect(output).toContain('no PreToolUse gate is registered');
+      expect(output).toContain('no edit is denied before it lands');
+      expect(code).toBe(1);
+    } finally {
+      captured.restore();
+      await cleanup(repo, homeDir);
+    }
+  });
+
+  // Claude Code merges user and project settings, and cyv can be installed in
+  // either. The first version of this check looked only at the home scope and
+  // reported a perfectly good project-local install as having no gate.
+  it('accepts a gate registered in the project settings rather than the user settings', async () => {
+    const { repo, homeDir } = await initializedRepo();
+    const captured = captureConsole();
+
+    try {
+      const homeSettings = join(homeDir, '.claude', 'settings.json');
+      const parsed: unknown = JSON.parse(await readFile(homeSettings, 'utf-8'));
+      if (typeof parsed !== 'object' || parsed === null) throw new Error('unexpected settings shape');
+      const hooks: unknown = Reflect.get(parsed, 'hooks');
+      if (typeof hooks !== 'object' || hooks === null) throw new Error('expected a hooks object');
+
+      const gate: unknown = Reflect.get(hooks, 'PreToolUse');
+      Reflect.deleteProperty(hooks, 'PreToolUse');
+      await writeFile(homeSettings, JSON.stringify(parsed, null, 2));
+
+      // The same gate, moved to the project scope.
+      await mkdir(join(repo, '.claude'), { recursive: true });
+      await writeFile(
+        join(repo, '.claude', 'settings.json'),
+        JSON.stringify({ hooks: { PreToolUse: gate } }, null, 2),
+      );
+
+      await doctorCommand.run(context(repo, [], homeDir));
+      expect(captured.logs.join('\n')).not.toContain('no PreToolUse gate is registered');
+    } finally {
+      captured.restore();
+      await cleanup(repo, homeDir);
+    }
+  });
+
+  // A notFix naming a rule the catalog does not declare makes every `cyv check`
+  // refuse, and the PreToolUse gate then allows the edit it could not judge.
+  // Doctor used to load each manifest, report it readable, and stop — so one
+  // typo turned enforcement off and the three things a person would look at all
+  // said nothing was wrong.
+  it('reports a notFix that names a rule the catalog does not declare', async () => {
+    const { repo, homeDir } = await initializedRepo();
+    const captured = captureConsole();
+
+    try {
+      const manifest = {
+        protocol: 1,
+        id: 'stub',
+        match: ['**/*.ts'],
+        exec: { type: 'node', module: './stub-analyzer.mjs' },
+        rules: [
+          {
+            id: 'no-stub-rule',
+            category: 'type-safety',
+            scope: 'file',
+            severity: 'error',
+            summary: 'Do not do the stub thing.',
+            why: 'It causes the stub problem.',
+            allowedFixes: ['Do the other thing.'],
+            notFixes: [
+              { pattern: 'Take the other shortcut', because: 'It trades one for another', rule: 'no-such-rule' },
+            ],
+            examples: { bad: 'bad', good: 'good' },
+          },
+        ],
+      };
+      await writeFile(join(repo, 'stub-analyzer.manifest.json'), JSON.stringify(manifest, null, 2));
+      await writeFile(join(repo, 'stub-analyzer.mjs'), 'export default async () => ({ protocol: 1, violations: [], skipped: [], diagnostics: [] });\n');
+
+      const configPath = join(repo, CONFIG_FILE);
+      const config: unknown = JSON.parse(await readFile(configPath, 'utf-8'));
+      if (typeof config !== 'object' || config === null) throw new Error('unexpected config shape');
+      Reflect.set(config, 'analyzers', [{ id: 'stub', package: './stub-analyzer.manifest.json' }]);
+      Reflect.set(config, 'rules', { 'no-stub-rule': {} });
+      await writeFile(configPath, JSON.stringify(config, null, 2));
+
+      const code = await doctorCommand.run(context(repo, [], homeDir));
+      const output = captured.logs.join('\n');
+
+      expect(output).toContain("notFix references unknown rule 'no-such-rule'");
+      // Exit 2 is doctor's code for a configuration that cannot be used, which
+      // is what an invalid rule catalog is; drift, which is repairable by
+      // re-running init, exits 1.
+      expect(code).toBe(2);
     } finally {
       captured.restore();
       await cleanup(repo, homeDir);
@@ -487,6 +616,31 @@ describe('cyv doctor', () => {
 
       expect(output).not.toContain('[unverified]');
       expect(code).toBe(0);
+    } finally {
+      captured.restore();
+      await cleanup(repo, homeDir);
+    }
+  });
+
+  // Ownership enforcement was implemented, tested, and measured against
+  // dispatches running on a lane where no gate could fire. Doctor is where an
+  // installation's own limits belong.
+  it('says a dispatch lane whose agent has no pre-tool hook cannot enforce ownership', async () => {
+    const { repo, homeDir } = await initializedRepo();
+    await configureAgents(repo, ['claude-code', 'antigravity']);
+    await declareLanes(repo, laneFixture('antigravity'));
+    const captured = captureConsole();
+
+    try {
+      await doctorCommand.run(context(repo, [], homeDir));
+      const output = captured.logs.join('\n');
+
+      expect(output).toContain('registers no pre-tool hook');
+      expect(output).toContain('cannot be refused on this lane');
+      // The claude-code lanes have a gate, so they are not accused of lacking
+      // one. The notice names the lane it is about.
+      expect(output).toContain('metered-lane');
+      expect(output).not.toContain('claude-code-main (subscription, orchestrator) runs agent');
     } finally {
       captured.restore();
       await cleanup(repo, homeDir);

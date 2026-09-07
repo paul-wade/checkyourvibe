@@ -205,12 +205,31 @@ const manifest: RuleManifest = {
       rule: 'no-any',
       because:
         'It removes type information and lets the error pass through untouched; the catch block is still swallowing the exception.',
+      example: `declare function loadData(): string;
+
+export function loadSafely(): string | undefined {
+  try {
+    return loadData();
+  } catch (e: any) {
+    return undefined;
+  }
+}`,
     },
     {
       pattern: 'Cast the caught error to a concrete type and leave the block otherwise empty.',
       rule: 'no-as-cast',
       because:
         'A cast asserts a type without proof and does not change the fact that the exception is being ignored.',
+      example: `declare function loadData(): string;
+
+export function loadSafely(): string | undefined {
+  try {
+    return loadData();
+  } catch (e) {
+    const err = e as Error;
+    return undefined;
+  }
+}`,
     },
     {
       pattern: 'Add a comment inside the catch block explaining why the exception is ignored.',
@@ -227,6 +246,15 @@ const manifest: RuleManifest = {
       rule: 'no-broad-catch-rethrow',
       because:
         'Rethrowing the caught error unchanged adds a stack frame without adding context or handling; the exception was already going to propagate.',
+      example: `declare function loadData(): string;
+
+export function loadSafely(): string {
+  try {
+    return loadData();
+  } catch (e) {
+    throw e;
+  }
+}`,
     },
   ],
   examples: {

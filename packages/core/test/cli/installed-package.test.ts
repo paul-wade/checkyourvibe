@@ -245,12 +245,23 @@ describe('cyv init from an installed package', () => {
       const commands = hookCommands(raw).filter((command) => command.includes('hook claude-code'));
 
       expect(commands).toEqual([
-        // The analyzer hook, the notes hook, and the notes Stop hook. Every one
-        // of them bare: the point of this test is that no absolute path to a
-        // staged checkout survives into the user's settings.
+        // In the order the settings file declares them: the PreToolUse gate,
+        // which denies an edit before it lands; the analyzer's PostToolUse
+        // hook and the notes hook, which record what happened; the notes Stop
+        // hook and the analyzer's own Stop hook, which checks the working tree
+        // for files no Edit or Write event ever reported; then the three
+        // turn-boundary events, recorded so the dashboard can tell a live
+        // session from a stale one without asking the model. Every one of them
+        // bare: the point of this test is that no absolute path to a staged
+        // checkout survives into the user's settings.
+        'cyv hook claude-code',
         'cyv hook claude-code',
         'cyv comments --hook claude-code',
         'cyv comments --hook claude-code',
+        'cyv hook claude-code',
+        'cyv hook claude-code',
+        'cyv hook claude-code',
+        'cyv hook claude-code',
       ]);
       expect(raw).not.toContain(staged.stage.replace(/\\/g, '\\\\'));
     });
@@ -292,12 +303,23 @@ describe('cyv init from an installed package', () => {
       const raw = await readFile(join(staged.homeDir, '.claude', 'settings.json'), 'utf-8');
       const commands = hookCommands(raw).filter((command) => command.includes('hook claude-code'));
       expect(commands).toEqual([
-        // The analyzer hook, the notes hook, and the notes Stop hook. Every one
-        // of them bare: the point of this test is that no absolute path to a
-        // staged checkout survives into the user's settings.
+        // In the order the settings file declares them: the PreToolUse gate,
+        // which denies an edit before it lands; the analyzer's PostToolUse
+        // hook and the notes hook, which record what happened; the notes Stop
+        // hook and the analyzer's own Stop hook, which checks the working tree
+        // for files no Edit or Write event ever reported; then the three
+        // turn-boundary events, recorded so the dashboard can tell a live
+        // session from a stale one without asking the model. Every one of them
+        // bare: the point of this test is that no absolute path to a staged
+        // checkout survives into the user's settings.
+        'cyv hook claude-code',
         'cyv hook claude-code',
         'cyv comments --hook claude-code',
         'cyv comments --hook claude-code',
+        'cyv hook claude-code',
+        'cyv hook claude-code',
+        'cyv hook claude-code',
+        'cyv hook claude-code',
       ]);
     });
   });

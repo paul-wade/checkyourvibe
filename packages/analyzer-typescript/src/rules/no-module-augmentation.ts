@@ -61,18 +61,32 @@ const manifest: RuleManifest = {
       because:
         'An assertion tells the compiler to accept a type it did not derive. The declaring file still does not mention the member, and every new use site needs its own assertion to keep compiling.',
       rule: 'no-as-cast',
+      example: `export interface Extra {
+  liveness?: string;
+}
+
+export function readLiveness(value: object): string | undefined {
+  return (value as Extra).liveness;
+}`,
     },
     {
       pattern: 'Type the value `any` so the member is reachable.',
       because:
         '`any` disables checking on that value entirely, so the added member resolves — and so does every misspelling of it.',
       rule: 'no-any',
+      example: `export function readLiveness(value: any): string | undefined {
+  return value.liveness;
+}`,
     },
     {
       pattern: 'Silence the resulting property error with a compiler directive.',
       because:
         'A directive suppresses one diagnostic on one line and leaves the type unchanged, so the next reader meets the same error with no record of why it was accepted.',
       rule: 'no-ts-comment',
+      example: `export function readLiveness(value: object): string | undefined {
+  // @ts-ignore
+  return value.liveness;
+}`,
     },
     {
       pattern: 'Keep the augmentation and make its members required rather than optional.',

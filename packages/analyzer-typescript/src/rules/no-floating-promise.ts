@@ -212,30 +212,62 @@ const manifest: RuleManifest = {
       rule: 'no-as-cast',
       because:
         'A cast does not await or handle the promise; it only hides the return type from the type checker, and the rejection is still unhandled.',
+      example: `declare function fetchData(): Promise<void>;
+
+export function run(): void {
+  fetchData() as void;
+}`,
     },
     {
       pattern: 'Annotate the surrounding function or variable as `any` so the Promise type is ignored',
       rule: 'no-any',
       because:
         '`any` removes type information and hides the promise from this rule, but the unhandled rejection still happens at runtime.',
+      example: `declare function fetchData(): Promise<void>;
+
+export function run(): void {
+  const result: any = fetchData();
+}`,
     },
     {
       pattern: 'Suppress the finding with a compiler-directive comment',
       rule: 'no-ts-comment',
       because:
         'A directive comment hides the unhandled promise without adding an `await`, a handler, or an explicit discard.',
+      example: `declare function fetchData(): Promise<void>;
+
+export function run(): void {
+  // @ts-ignore
+  fetchData();
+}`,
     },
     {
       pattern: 'Wrap the call in a try/catch with an empty catch block',
       rule: 'no-swallowed-catch',
       because:
         'A try/catch around an async call cannot catch a promise rejection that happens later; an empty catch swallows synchronous errors and leaves the promise unhandled.',
+      example: `declare function fetchData(): Promise<void>;
+
+export function run(): void {
+  try {
+    fetchData();
+  } catch {}
+}`,
     },
     {
       pattern: 'Rethrow the caught error unchanged from a catch block',
       rule: 'no-broad-catch-rethrow',
       because:
         'Rethrowing the same error from a catch adds a stack frame without handling the unhandled promise; the promise is still floating.',
+      example: `declare function fetchData(): Promise<void>;
+
+export function run(): void {
+  try {
+    fetchData();
+  } catch (e) {
+    throw e;
+  }
+}`,
     },
     {
       pattern: 'Use `.then(...)` with only an onFulfilled handler',
@@ -247,6 +279,11 @@ const manifest: RuleManifest = {
       rule: 'no-swallowed-catch',
       because:
         'The rejection is caught and discarded, so the failure is now invisible instead of loud, which is worse than the floating promise was.',
+      example: `declare function fetchData(): Promise<void>;
+
+export function run(): void {
+  fetchData().catch(() => {});
+}`,
     },
     {
       pattern: 'Pass the promise to `Promise.all` and ignore the returned promise',

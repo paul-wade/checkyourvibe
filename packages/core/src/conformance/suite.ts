@@ -10,6 +10,7 @@ import {
   type AnalyzeRequest,
   type AnalyzeResponse,
   type AnalyzerManifest,
+  type NotFix,
   type RuleManifest,
   type RuleSettings,
   type Violation,
@@ -43,6 +44,7 @@ const CHECK_NAMES = {
   guidanceCompleteness: 'every rule has a non-empty summary, why, allowedFixes, and both examples',
   emptyFiles: 'an empty files array returns a well-formed response with zero violations',
   catchesOwnConstruct: "the analyzer catches a violation of one of its own rule's bad examples",
+  notFixClosure: 'every notFix that names a rule carries an example, and the analyzer reports that rule on it',
   nonexistentFileSkipped: 'a nonexistent file is reported in skipped, not silently dropped',
   unknownRuleId: 'a request naming an unknown rule id does not crash the analyzer',
   noGuidancePopulated: 'violations returned by the analyzer do not populate guidance',
@@ -442,6 +444,159 @@ async function checkCatchesOwnConstruct(
   };
 }
 
+interface NotFixEdge {
+  owningRuleId: string;
+  notFix: NotFix;
+}
+
+function collectNotFixEdges(manifest: AnalyzerManifest): NotFixEdge[] {
+  const edges: NotFixEdge[] = [];
+  for (const rule of manifest.rules) {
+    for (const notFix of rule.notFixes) {
+      if (notFix.rule !== undefined) {
+        edges.push({ owningRuleId: rule.id, notFix });
+      }
+    }
+  }
+  return edges;
+}
+
+interface PreparedNotFixEdge {
+  owningRuleId: string;
+  targetRule: string;
+  edgeLabel: string;
+  samplePath: string;
+}
+
+/**
+ * Every notFix that names a rule is a claim: "this shortcut trips rule X."
+ * `checkNotFixReferences` (above) only checks that X exists. This check
+ * proves the claim itself — it runs the analyzer, with every rule enabled,
+ * on the notFix's `example` and requires the named rule to actually appear
+ * among the violations. A notFix with no `example` fails outright: an
+ * unverified edge is not a closed one.
+ *
+ * Every example is written to its own file, but all of them are analyzed in
+ * a single request rather than one request per edge: analyzer-typescript
+ * alone has dozens of edges, and a fresh project load per edge would make
+ * this check too slow to run inside a test suite. Violations are then
+ * mapped back to the edge that produced them by file path.
+ */
+async function checkNotFixClosure(
+  manifest: AnalyzerManifest,
+  tempDir: string,
+  validateResponse: ValidateFunction,
+): Promise<ScriptedCheckResult> {
+  const edges = collectNotFixEdges(manifest);
+  if (edges.length === 0) {
+    return {
+      check: pass(CHECK_NAMES.notFixClosure, 'No notFix names a rule; nothing to close.'),
+      violations: [],
+    };
+  }
+
+  const problems: string[] = [];
+  const prepared: PreparedNotFixEdge[] = [];
+  const indexByOwningRule = new Map<string, number>();
+
+  for (const edge of edges) {
+    const targetRule = edge.notFix.rule;
+    if (targetRule === undefined) {
+      continue;
+    }
+    const edgeLabel = `${edge.owningRuleId} -> notFix "${edge.notFix.pattern}" (rule "${targetRule}")`;
+
+    if (!isNonEmptyString(edge.notFix.example)) {
+      problems.push(`${edgeLabel}: no example`);
+      continue;
+    }
+
+    const index = indexByOwningRule.get(edge.owningRuleId) ?? 0;
+    indexByOwningRule.set(edge.owningRuleId, index + 1);
+    const samplePath = path.join(
+      tempDir,
+      `notfix-${edge.owningRuleId}-${index}${extensionFromMatch(manifest.match)}`,
+    );
+    await writeFile(samplePath, edge.notFix.example, 'utf-8');
+    prepared.push({ owningRuleId: edge.owningRuleId, targetRule, edgeLabel, samplePath });
+  }
+
+  const allViolations: Violation[] = [];
+  let stillReportedByOwner = 0;
+
+  if (prepared.length > 0) {
+    const request: AnalyzeRequest = {
+      protocol: PROTOCOL_VERSION,
+      repoRoot: tempDir,
+      mode: 'file',
+      files: prepared.map((entry) => entry.samplePath),
+      rules: fullRuleSettings(manifest),
+    };
+
+    const { response, error } = await runSafely(manifest, request, tempDir);
+    if (response === undefined) {
+      for (const entry of prepared) {
+        problems.push(`${entry.edgeLabel}: analyzer threw while analyzing the example: ${error}`);
+      }
+    } else if (!isValid(validateResponse, response)) {
+      const schemaDetail = formatAjvErrors(validateResponse.errors);
+      for (const entry of prepared) {
+        problems.push(
+          `${entry.edgeLabel}: response does not match analyze-response.schema.json: ${schemaDetail}`,
+        );
+      }
+      allViolations.push(...response.violations);
+    } else {
+      allViolations.push(...response.violations);
+
+      // Violations are keyed by a canonical, `path.resolve`d form of their file
+      // path rather than the raw string on either side: a real analyzer (e.g.
+      // ts-morph's `getFilePath()`) can report forward slashes on a platform
+      // where `path.join` produced backslashes, and an un-normalized comparison
+      // would then miss every lookup and report every edge as "did not report".
+      const violationsByFile = new Map<string, Violation[]>();
+      for (const violation of response.violations) {
+        const resolvedFile = path.resolve(tempDir, violation.file);
+        const existing = violationsByFile.get(resolvedFile);
+        if (existing === undefined) {
+          violationsByFile.set(resolvedFile, [violation]);
+        } else {
+          existing.push(violation);
+        }
+      }
+
+      for (const entry of prepared) {
+        const fileViolations = violationsByFile.get(path.resolve(tempDir, entry.samplePath)) ?? [];
+        const reported = fileViolations.some((violation) => violation.ruleId === entry.targetRule);
+        if (!reported) {
+          problems.push(`${entry.edgeLabel}: did not report`);
+        }
+        // Informational only, per the plan: whether the shortcut still trips its own
+        // source rule too never affects pass/fail, only what is reported about it.
+        if (fileViolations.some((violation) => violation.ruleId === entry.owningRuleId)) {
+          stillReportedByOwner += 1;
+        }
+      }
+    }
+  }
+
+  if (problems.length === 0) {
+    return {
+      check: pass(
+        CHECK_NAMES.notFixClosure,
+        `${edges.length} notFix edge(s) with a named rule verified against their examples. ` +
+          `${stillReportedByOwner} of them are still reported by their own source rule too ` +
+          '(informational; this is not enforced).',
+      ),
+      violations: allViolations,
+    };
+  }
+  return {
+    check: fail(CHECK_NAMES.notFixClosure, problems.join(' | ')),
+    violations: allViolations,
+  };
+}
+
 async function checkNonexistentFileSkipped(
   manifest: AnalyzerManifest,
   tempDir: string,
@@ -599,6 +754,7 @@ export async function verifyAnalyzer(manifestPath: string): Promise<ConformanceR
       `${loaded.error ?? 'unknown error'}`;
     checks.push(fail(CHECK_NAMES.emptyFiles, detail));
     checks.push(fail(CHECK_NAMES.catchesOwnConstruct, detail));
+    checks.push(fail(CHECK_NAMES.notFixClosure, detail));
     checks.push(fail(CHECK_NAMES.nonexistentFileSkipped, detail));
     checks.push(fail(CHECK_NAMES.unknownRuleId, detail));
     checks.push(fail(CHECK_NAMES.noGuidancePopulated, detail));
@@ -615,6 +771,10 @@ export async function verifyAnalyzer(manifestPath: string): Promise<ConformanceR
       const catchesResult = await checkCatchesOwnConstruct(manifest, tempDir, responseValidator);
       checks.push(catchesResult.check);
       allViolations.push(...catchesResult.violations);
+
+      const notFixClosureResult = await checkNotFixClosure(manifest, tempDir, responseValidator);
+      checks.push(notFixClosureResult.check);
+      allViolations.push(...notFixClosureResult.violations);
 
       const skippedResult = await checkNonexistentFileSkipped(manifest, tempDir, responseValidator);
       checks.push(skippedResult.check);

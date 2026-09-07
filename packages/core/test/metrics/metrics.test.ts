@@ -12,7 +12,6 @@ import type { RuleManifest } from '../../src/protocol/index.js';
 
 function rule(overrides: Partial<RuleManifest> & { id: string }): RuleManifest {
   return {
-    id: overrides.id,
     category: 'type-safety',
     scope: 'file',
     severity: 'error',

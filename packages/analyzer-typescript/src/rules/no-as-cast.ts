@@ -74,30 +74,56 @@ const manifest: RuleManifest = {
       rule: 'no-non-null-assertion',
       because:
         'It removes the same nullability check the cast was trying to avoid, and is reported by no-non-null-assertion.',
+      example: `export function getName(value: string | undefined): string {
+  return value!;
+}`,
     },
     {
       pattern: 'Move the cast to the result of `JSON.parse` or `response.json()` and annotate the parsed value.',
       rule: 'no-json-parse-cast',
       because:
         'The data still reaches the target type without a runtime check; the cast is simply hidden behind a parser call.',
+      example: `export interface Config {
+  name: string;
+}
+
+export function loadConfig(raw: string): Config {
+  const parsed: Config = JSON.parse(raw);
+  return parsed;
+}`,
     },
     {
       pattern: 'Suppress the resulting error with a compiler-directive comment such as `@ts-ignore` or `@ts-expect-error`.',
       rule: 'no-ts-comment',
       because:
         'A directive comment hides the type error without changing the actual value, so the mismatch remains at runtime.',
+      example: `export function getTotal(rawTotal: unknown): number {
+  // @ts-ignore
+  const total: number = rawTotal;
+  return total;
+}`,
     },
     {
       pattern: 'Annotate the value as `any` so no cast is needed.',
       rule: 'no-any',
       because:
         'Using `any` removes type information altogether, which is a broader and more damaging violation.',
+      example: `declare function fetchUser(): unknown;
+
+export function loadUser(): any {
+  return fetchUser();
+}`,
     },
     {
       pattern: 'Cast a returned promise to `void` so the call can be used as an expression statement.',
       rule: 'no-floating-promise',
       because:
         'A cast does not await or handle the promise; it only hides the unhandled promise from the type checker, and `void` should be the explicit, documented discard instead.',
+      example: `declare function fetchData(): Promise<void>;
+
+export function run(): void {
+  fetchData() as void;
+}`,
     },
   ],
   examples: {

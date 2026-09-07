@@ -15,13 +15,16 @@ describe('baseline identity', () => {
 
     expect(beforeEntry).toBeDefined();
     expect(afterEntry).toBeDefined();
+    if (beforeEntry === undefined || afterEntry === undefined) {
+      throw new Error('expected beforeEntry and afterEntry to be defined');
+    }
     // Identity fields match even though `line` does not.
-    expect(afterEntry?.entry.path).toBe(beforeEntry?.entry.path);
-    expect(afterEntry?.entry.ruleId).toBe(beforeEntry?.entry.ruleId);
-    expect(afterEntry?.entry.fingerprint).toBe(beforeEntry?.entry.fingerprint);
-    expect(afterEntry?.entry.occurrence).toBe(beforeEntry?.entry.occurrence);
-    expect(afterEntry?.entry.line).toBe(15);
-    expect(beforeEntry?.entry.line).toBe(10);
+    expect(afterEntry.entry.path).toBe(beforeEntry.entry.path);
+    expect(afterEntry.entry.ruleId).toBe(beforeEntry.entry.ruleId);
+    expect(afterEntry.entry.fingerprint).toBe(beforeEntry.entry.fingerprint);
+    expect(afterEntry.entry.occurrence).toBe(beforeEntry.entry.occurrence);
+    expect(afterEntry.entry.line).toBe(15);
+    expect(beforeEntry.entry.line).toBe(10);
 
     // partitionViolations recognises the moved violation as the one already
     // in the baseline (Requirement 2.2), not a new one.
@@ -43,7 +46,11 @@ describe('baseline identity', () => {
     const [beforeEntry] = computeEntries([before], FIXTURE_REPO_ROOT);
     const [afterEntry] = computeEntries([after], FIXTURE_REPO_ROOT);
 
-    expect(afterEntry?.entry.fingerprint).not.toBe(beforeEntry?.entry.fingerprint);
+    if (beforeEntry === undefined || afterEntry === undefined) {
+      throw new Error('expected beforeEntry and afterEntry to be defined');
+    }
+
+    expect(afterEntry.entry.fingerprint).not.toBe(beforeEntry.entry.fingerprint);
 
     const baseline = {
       header: { version: 1, takenAt: '2026-01-01T00:00:00.000Z', commit: 'abc123' },

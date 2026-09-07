@@ -13,9 +13,11 @@ import { readFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import type { Command, CommandContext } from './types.js';
 import { repoRoot } from '../run/discover.js';
+import { validateRules } from '../guidance/validate.js';
 import { CONFIG_FILENAME, loadConfig } from '../config/load.js';
 import { configuredLanes } from '../config/lanes.js';
 import { resolveBriefInput, type BriefInput } from '../executor/brief.js';
+import { readDispatchLog, dispatchLogPath, type ReadDispatchStats } from '../executor/store.js';
 import { describeLane } from '../executor/lane.js';
 import { findProgram, pathExtensions } from '../executor/program.js';
 import { agentCommandFor, AGENT_COMMANDS } from '../executor/invocation.js';
@@ -131,6 +133,66 @@ function toUnknownArray(value: unknown): unknown[] | undefined {
     result.push(item);
   }
   return result;
+}
+
+/**
+ * The agents whose adapter registers a pre-tool hook, which is the only place
+ * a write can be refused before it lands.
+ *
+ * Every other adapter registers `PostToolUse` alone, because the vendor facts
+ * those adapters are built from name no pre-tool event. On those agents a
+ * dispatch's declared ownership is judged after the fact by `classifyOutcome`
+ * and cannot be enforced (spec 0063).
+ *
+ * This was worth naming: ownership enforcement was implemented, tested, and
+ * measured against dispatches running on a lane where no gate could fire, and
+ * a fall in out-of-scope writes was briefly read as its effect.
+ */
+const AGENTS_WITH_A_PRE_TOOL_GATE: ReadonlySet<string> = new Set(['claude-code']);
+
+/**
+ * Whether Claude Code's settings register cyv as a `PreToolUse` hook — the
+ * gate that denies an edit before it lands (spec 0059 Requirement 1.1).
+ *
+ * This exists because its absence was silent. The gate was implemented in
+ * full and registered by nothing, so no edit was ever denied while every
+ * other check reported a healthy install.
+ */
+async function hasClaudeCodePreToolUseGate(homeDir: string, repoRoot: string): Promise<boolean> {
+  // Claude Code merges the user's settings with the project's, and cyv can be
+  // installed in either. Checking only the home scope reports a project-local
+  // install as having no gate at all.
+  for (const dir of [homeDir, repoRoot]) {
+    if (await gateInSettings(join(dir, '.claude', 'settings.json'))) return true;
+  }
+  return false;
+}
+
+async function gateInSettings(settingsPath: string): Promise<boolean> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(settingsPath, 'utf-8'));
+  } catch {
+    return false;
+  }
+
+  if (!isRecord(parsed) || !isRecord(parsed.hooks)) return false;
+  const preToolUse = toUnknownArray(parsed.hooks.PreToolUse);
+  if (preToolUse === undefined) return false;
+
+  for (const matcher of preToolUse) {
+    if (!isRecord(matcher)) continue;
+    const innerHooks = toUnknownArray(matcher.hooks);
+    if (innerHooks === undefined) continue;
+    for (const hook of innerHooks) {
+      if (!isRecord(hook)) continue;
+      const command = hook.command;
+      if (typeof command === 'string' && command.endsWith(CLAUDE_CODE_HOOK_SUFFIX)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 async function extractClaudeCodeCyvCommand(homeDir: string): Promise<string | undefined> {
@@ -568,6 +630,21 @@ async function laneReport(
       continue;
     }
 
+    // Whether a write can be refused is a fact about the agent's adapter, not
+    // about whether its program happens to be installed here, so this is
+    // reported before the lane is resolved against PATH.
+    if (lane.acceptsDispatch && !AGENTS_WITH_A_PRE_TOOL_GATE.has(lane.agentId)) {
+      lines.push(
+        noticeLine(
+          `executor lane ${describeLane(lane)} runs agent "${lane.agentId}", whose adapter ` +
+            'registers no pre-tool hook, so a write outside a dispatch\'s declared ownership ' +
+            'cannot be refused on this lane. It is judged after the dispatch closes and ' +
+            'recorded as an out-of-scope write. Ownership is enforced only on a lane whose ' +
+            'agent has a pre-tool event.',
+        ),
+      );
+    }
+
     const spec = agentCommandFor(lane.agentId);
     if (spec === undefined) {
       // The configured agent has no command-line mapping in this build, so the
@@ -618,6 +695,7 @@ async function laneReport(
           `found on PATH at ${launcher.path}, ${cap}. It ${disposition}.${metered}`
       ),
     );
+
   }
 
   return { lines, hasError };
@@ -693,14 +771,29 @@ async function checkAgentDrift(
     const changed = diffs.filter((d) => d.changed);
     let embeddedMissing: string | undefined;
 
+    let gateMissing = false;
+
     if (plugin.id === 'claude-code') {
       const embedded = await extractClaudeCodeCyvCommand(ctx.homeDir);
       if (embedded !== undefined && !(await commandResolves(embedded))) {
         embeddedMissing = embedded;
       }
+      // An install can look entirely healthy while the gate is absent, in
+      // which case nothing is enforced and every check still passes. Say so.
+      gateMissing = !(await hasClaudeCodePreToolUseGate(ctx.homeDir, ctx.repoRoot));
     }
 
-    const drifted = changed.length > 0 || embeddedMissing !== undefined;
+    if (gateMissing) {
+      lines.push(
+        errorLine(
+          'no PreToolUse gate is registered for claude-code in either the user or the project settings, ' +
+            'so no edit is denied before it lands. Only the advisory hooks are running. ' +
+            'Re-run `cyv init` to install it.',
+        ),
+      );
+    }
+
+    const drifted = changed.length > 0 || embeddedMissing !== undefined || gateMissing;
 
     if (drifted) {
       lines.push(
@@ -803,6 +896,12 @@ export const command: Command = {
       let catalog: RuleManifest[] = [];
       try {
         catalog = allRules(manifests);
+        // A notFix naming a rule the catalog does not declare makes every
+        // `cyv check` refuse, and the PreToolUse gate then allows the edit it
+        // could not judge. One typo turns enforcement off, and until this ran
+        // here nothing said so before a run: doctor reported each manifest
+        // readable and stopped there.
+        validateRules(catalog);
       } catch (err) {
         hasError = true;
         lines.push(errorLine(messageFor(err)));
@@ -858,6 +957,21 @@ export const command: Command = {
         hasError = true;
         lines.push(errorLine(messageFor(err)));
       }
+    }
+
+    try {
+      const stats: ReadDispatchStats = { unparseableLines: 0, unparseableLineNumbers: [] };
+      await readDispatchLog(root, stats);
+      if (stats.unparseableLines > 0) {
+        hasError = true;
+        const lineNums = stats.unparseableLineNumbers.length <= 10
+          ? stats.unparseableLineNumbers.join(', ')
+          : `${stats.unparseableLineNumbers.slice(0, 10).join(', ')} and ${stats.unparseableLines - 10} more`;
+        lines.push(errorLine(`dispatch log ${dispatchLogPath(root)} has ${stats.unparseableLines} unrecognised line(s) (line ${lineNums}). A malformed line is dropped on read, which can hide a record.`));
+      }
+    } catch (err) {
+      hasError = true;
+      lines.push(errorLine(`could not read dispatch log: ${messageFor(err)}`));
     }
 
     console.log(lines.join('\n'));

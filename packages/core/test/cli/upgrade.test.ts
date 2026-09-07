@@ -179,7 +179,7 @@ async function writeManifest(
 }
 
 async function setupRepo(repo: string, rules: RuleDefinition[], agents?: string[]): Promise<void> {
-  await writeConfig(repo, { agents });
+  await writeConfig(repo, agents !== undefined ? { agents } : {});
   await writeManifest(repo, rules);
 }
 

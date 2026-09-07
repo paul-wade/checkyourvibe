@@ -19,6 +19,12 @@ export interface NotFix {
   because: string;
   /** The rule id this non-fix would trip, when there is one. */
   rule?: string;
+  /**
+   * Source text in which this non-fix has been applied. Required when `rule`
+   * is set; the conformance suite runs the analyzer on it and requires
+   * `rule` to report.
+   */
+  example?: string;
 }
 
 /** The explanatory half of a rule — everything a human or agent needs to fix it. */
@@ -109,6 +115,7 @@ function isNotFix(value: unknown): value is NotFix {
   if (!isRecord(value)) return false;
   if (typeof value.pattern !== 'string' || typeof value.because !== 'string') return false;
   if (value.rule !== undefined && typeof value.rule !== 'string') return false;
+  if (value.example !== undefined && typeof value.example !== 'string') return false;
   return true;
 }
 

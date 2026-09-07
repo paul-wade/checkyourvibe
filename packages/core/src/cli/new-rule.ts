@@ -196,6 +196,8 @@ const manifest: RuleManifest = {
       because: 'TODO: explain why this does not actually solve the problem.',
       // A notFix's 'rule' may only name a rule in the same analyzer; a dangling reference fails conformance.
       rule: 'TODO-sibling-rule',
+      // The conformance suite runs the analyzer on 'example' and requires 'rule' to report on it.
+      example: 'TODO: paste source text in which this non-fix has been applied.',
     },
   ],
   examples: {

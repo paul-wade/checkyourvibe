@@ -37,7 +37,8 @@
         {
           "pattern": "Declare the value as `object` instead.",
           "because": "`object` still leaves every member access unresolved and requires a cast before anything useful can be done with it; it does not restore compile-time checking, it just changes which keyword defers it.",
-          "rule": "no-unchecked-cast"
+          "rule": "no-unchecked-cast",
+          "example": "public class NotFixDynamicSettings\n{\n    public int Timeout;\n}\n\npublic class NotFixDynamicHandler\n{\n    public void Handle(object settings)\n    {\n        var typed = (NotFixDynamicSettings)settings;\n        System.Console.WriteLine(typed.Timeout);\n    }\n}"
         },
         {
           "pattern": "Keep the value `dynamic` but wrap each use in a try/catch.",
@@ -71,7 +72,8 @@
         {
           "pattern": "Suppress the possibility of failure with the null-forgiving operator on the result of `as`.",
           "because": "It removes the compiler's null check on the very value the cast might fail to produce, trading one unchecked assumption for another.",
-          "rule": "no-null-forgiving"
+          "rule": "no-null-forgiving",
+          "example": "public class NotFixCastTarget\n{\n    public int Value;\n}\n\npublic class NotFixCastHandler\n{\n    public void Handle(object input)\n    {\n        var typed = (input as NotFixCastTarget)!;\n        System.Console.WriteLine(typed.Value);\n    }\n}"
         }
       ],
       "examples": {

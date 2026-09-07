@@ -91,18 +91,30 @@ const manifest: RuleManifest = {
       because:
         'A cast also bypasses the type checker and is just another way to assert a claim without evidence.',
       rule: 'no-as-cast',
+      example: `export function getName(value: string | undefined): string {
+  return value as string;
+}`,
     },
     {
       pattern: 'Annotate the value as `any` so the compiler stops asking',
       because:
         'Widening to `any` removes type information entirely and hides every future mistake.',
       rule: 'no-any',
+      example: `declare function maybeGetName(): string | undefined;
+
+export function getName(): any {
+  return maybeGetName();
+}`,
     },
     {
       pattern: 'Suppress the error with a compiler-directive comment',
       because:
         'A directive comment hides the problem from the type checker without removing the runtime risk.',
       rule: 'no-ts-comment',
+      example: `export function getName(value: string | undefined): string {
+  // @ts-ignore
+  return value;
+}`,
     },
     {
       pattern: 'Move the `!` from the use site to the field declaration',

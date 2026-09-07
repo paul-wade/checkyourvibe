@@ -486,24 +486,49 @@ const manifest: RuleManifest = {
       rule: 'no-as-cast',
       because:
         'A cast asserts the type without proof; at runtime the value is still `any[]`, and the compiler stops checking element accesses.',
+      example: `export function readFirst(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value as unknown[];
+  }
+  return [];
+}`,
     },
     {
       pattern: 'Use the non-null assertion operator `!` to treat the value as an array or an element as present.',
       rule: 'no-non-null-assertion',
       because:
         '`!` removes a check without proving the value is an array or that an element has the expected type.',
+      example: `export function readFirst(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value[0]!;
+  }
+  return undefined;
+}`,
     },
     {
       pattern: 'Widen the argument to `any` so the type guard succeeds without a complaint.',
       rule: 'no-any',
       because:
         '`any` already removes type checking; making the argument `any` only hides the `Array.isArray` call in a wider untyped surface.',
+      example: `export function readFirst(value: any): unknown {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return undefined;
+}`,
     },
     {
       pattern: 'Suppress the error with `// @ts-ignore` or `// @ts-expect-error`.',
       rule: 'no-ts-comment',
       because:
         'A directive comment hides the narrowing to `any[]` without replacing it with a safe guard.',
+      example: `export function readFirst(value: unknown): unknown {
+  // @ts-ignore
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return undefined;
+}`,
     },
   ],
   examples: {

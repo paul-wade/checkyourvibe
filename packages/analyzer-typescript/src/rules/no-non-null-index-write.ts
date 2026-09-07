@@ -274,30 +274,49 @@ const manifest: RuleManifest = {
       rule: 'no-non-null-assertion',
       because:
         'A non-null assertion does not prove the slot exists; it only tells the compiler to trust that it does, and the write can still land on a missing index.',
+      example: `export function readAfterWrite(arr: string[], i: number): string {
+  arr[i] = 'x';
+  return arr[i]!;
+}`,
     },
     {
       pattern: 'Cast the index to a narrower type with `as`',
       rule: 'no-as-cast',
       because:
         'Casting the index does not change the actual range of the value; an out-of-bounds or missing slot can still be written.',
+      example: `export function writeAt(arr: string[], i: number | string): void {
+  arr[i as number] = 'x';
+}`,
     },
     {
       pattern: 'Widen the array or tuple to `any` so the index write is not checked',
       rule: 'no-any',
       because:
         '`any` removes all type information and simply moves the out-of-bounds or missing-slot risk to runtime without a compile-time guard.',
+      example: `export function writeAt(arr: any[], i: number): void {
+  arr[i] = 'x';
+}`,
     },
     {
       pattern: 'Suppress the finding with a compiler-directive comment',
       rule: 'no-ts-comment',
       because:
         'A directive comment hides the unchecked write without adding a guard, so the runtime risk of writing to a missing slot remains.',
+      example: `export function writeAt(arr: string[], i: number): void {
+  // @ts-ignore
+  arr[i] = 'x';
+}`,
     },
     {
       pattern: 'Use `Array.isArray` on an `any` or `unknown` value to justify the index write',
       rule: 'no-unsafe-array-narrowing',
       because:
         '`Array.isArray` narrows `unknown` to `any[]`, so the element write is still unchecked and the rule no-unsafe-array-narrowing will fire.',
+      example: `export function writeAt(value: unknown, i: number): void {
+  if (Array.isArray(value)) {
+    value[i] = 'x';
+  }
+}`,
     },
   ],
   examples: {

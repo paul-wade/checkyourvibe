@@ -370,6 +370,11 @@ describe('runCheck', () => {
 
       const { report } = await runCheck({ cwd: repo, mode: 'all' });
 
+      expect(report.rulesEnabled).toBeDefined();
+      expect(report.rulesAvailable).toBeDefined();
+      if (report.rulesEnabled === undefined || report.rulesAvailable === undefined) {
+        throw new Error('expected rulesEnabled and rulesAvailable to be defined');
+      }
       expect(report.rulesEnabled).toBeGreaterThan(0);
       expect(report.rulesAvailable).toBeGreaterThan(report.rulesEnabled);
       expect(configNotice(report)).toContain(

@@ -35,18 +35,29 @@ const manifest: RuleManifest = {
       rule: 'no-as-cast',
       because:
         'It asserts a type without proof; the runtime value can still be anything, and the compiler stops checking it.',
+      example: `export function readValue(input: unknown): string {
+  return input as string;
+}`,
     },
     {
       pattern: 'replace the type with `object` or `{}` to keep the code compiling',
       rule: 'no-useless-types',
       because:
         'Those types look like constraints but accept almost every value, so the underlying problem is still there and no-useless-types will report them.',
+      example: `export function getValue(): object {
+  return {};
+}`,
     },
     {
       pattern: 'suppress the error with `// @ts-ignore` or `// @ts-expect-error`',
       rule: 'no-ts-comment',
       because:
         'It silences the type checker rather than replacing the missing type, so later code assumes guarantees that do not exist.',
+      example: `export function parseCount(raw: unknown): number {
+  // @ts-ignore
+  const count: number = raw;
+  return count;
+}`,
     },
   ],
   examples: {
