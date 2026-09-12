@@ -1,0 +1,16 @@
+{
+  // The build config compiles `src` into `dist` and deliberately excludes the
+  // tests, which are run by vitest and never emitted. That left the tests
+  // unchecked by any type checker: a fixture could construct a model the type
+  // no longer permits, and nothing said so until the assertion failed at run
+  // time — or, worse, did not.
+  //
+  // This config checks them without emitting anything.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["test/fixtures/**/*"]
+}

@@ -9,14 +9,21 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "jsdom": "^30.0.1",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^3.0.0"
   },
   "scripts": {
     "build": "tsc -b && node tools/copy-schemas.mjs && node tools/mark-bin-executable.mjs",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b && tsc --noEmit -p packages/core/tsconfig.test.json",
+    "typecheck:tests": "tsc --noEmit -p packages/core/tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest"
+  },
+  "dependencies": {
+    "dockview-core": "^8.2.0",
+    "monaco-editor": "^0.56.0"
   }
 }

@@ -187,3 +187,30 @@ report what blocked you rather than exiting quietly.
 - Comments explain *why*, not *what*. No preamble blocks restating a function's signature.
 - Prefer a named interface to an inline anonymous shape.
 - Errors carry actionable context: what failed, which input, what to do about it.
+
+<!-- checkyourvibe:start:antigravity-workflow -->
+checkyourvibe hooks into Antigravity CLI after each edit tool call via `PostToolUse`.
+
+If the analyzer finds violations, the hook still exits 0 — Antigravity CLI treats
+exit code 2 from a hook as a block, cancelling the action, and an advisory check
+must never do that. Findings are written instead into the hook's stdout JSON, which
+Antigravity CLI feeds back to the model.
+
+Before choosing a fix, run `cyv explain <rule-id>` to read the full rule guidance in
+`.agents/skills/checkyourvibe-rules.md`. Pay special attention to the listed
+not-fixes: those are changes that would trade one violation for another.
+<!-- checkyourvibe:end:antigravity-workflow -->
+
+<!-- checkyourvibe:start:devin-workflow -->
+checkyourvibe hooks into the Devin CLI after each edit or write tool call via
+`PostToolUse`.
+
+If the analyzer finds violations, the hook still exits 0, and the findings travel in
+`hookSpecificOutput.additionalContext` in the hook's stdout JSON, which Devin reads
+back to the model. An advisory check does not cancel an action.
+
+Before choosing a fix, run `cyv explain <rule-id>` to read the full rule guidance,
+which is also installed as one Devin skill per rule under `.devin/skills/`. Pay
+special attention to the listed not-fixes: those are changes that would trade one
+violation for another.
+<!-- checkyourvibe:end:devin-workflow -->

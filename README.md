@@ -3,11 +3,10 @@
 Code standards that hold when an agent is writing the code.
 
 - **A compiler decides, not a model.** Same input, same verdict, every run.
-- **Multi-agent, multi-model.** Runs on the subscriptions you already hold, and takes the smallest
-  model that can do each job. No API key, no token cost.
-- **Pluggable on every axis.** A language, a rule pack, an agent, an executor. The core learns none
-  of them.
-- **Every finding names the fixes that work, and the shortcuts that don't.**
+- **Agent-native rule interlocking.** Tells agents how to fix findings and explicitly blocks the evasion shortcuts (`notFix` dead-ends) they reach for when trying to bypass standard linters.
+- **Zero API token cost required.** Turns idle flat-rate subscriptions into a 24/7 background worker pool with automatic rate-limiting and parallel CLI lane scheduling.
+- **Smart model tiering & empirical escalation.** Runs the smallest model capable of each task, escalating to higher tiers only when AST compiler gates fail.
+- **Async dashboard Q&A.** Moves interaction out of synchronous chat streams into a localhost dashboard where agents work continuously and request human input only when needed.
 
 <p align="center">
   <img src="docs/media/interlock.svg" alt="cyv check reporting a finding with its allowed fixes and the dead ends each would trip" width="880">
@@ -24,34 +23,62 @@ can't reach it.
 
 ```
   advisory    instructions, MCP     agent may read it, may ignore it
-  fast loop   agent hook            feedback at the moment of the edit
+  gate        pre-edit hook         the edit is denied before it lands
+  record      post-edit hook        what happened, whatever the agent chose
   guarantee   git hook, CI          ts-morph, Roslyn, ast, syn
 ```
 
-The bottom layer runs on the diff regardless. It doesn't care whether the agent read the guidance,
-agreed with it, or wrote the code at all. The model gets no vote on whether its output passes.
+The gate and the guarantee both run whether or not the agent agrees. The pre-edit hook inspects the
+proposed content and refuses the tool call, so the write never happens. The bottom layer runs on the
+diff regardless, and doesn't care whether the agent read the guidance or wrote the code at all.
 
-That's why the top two layers are allowed to be flaky. Nothing depends on them.
+The advisory layer is allowed to be flaky. Nothing depends on it.
 
-## Rules that cover each other
+Be precise about what each layer buys, because the difference is measurable. A post-edit hook cannot
+undo a write that already landed, and a model knows it: probed on 2026-09-06, one read the guidance,
+reasoned that "the hook's exit status does not undo the write", and declined. That is why the record
+row is named for what it does rather than for what it prevents.
+
+The gate row is the one that prevents. It runs on the edit tools and on `Bash`, because a hook
+matching only edits never sees `echo ... > file.ts` — an escape route in exactly the sense the
+notFixes below describe. A denied edit comes back carrying the rule and its notFixes, so the model
+reads why the shortcut it was about to take is refused at the moment it is refused, rather than
+afterwards. What it still cannot see is a write made by something other than the agent's tools; that
+is what the git hook is for.
+
+## Rules that cover each other (Agent-Native Evasion Defense)
 
 <p align="center">
   <img src="docs/media/interlock-graph.svg" alt="The TypeScript rules drawn as a graph: 14 rules connected by 47 notFix edges" width="620">
 </p>
 
-Reach for `as` to escape `no-any` and `no-as-cast` is waiting. Reach for `@ts-ignore` to escape
-that and `no-ts-comment` is there. Fourteen TypeScript rules, forty-seven declared dead ends between
-them, and every one names the rule it lands on.
+Standard linters were built for humans who make honest mistakes. When an AI agent encounters a standard linter error, it attempts **satisficing**—finding the cheapest language shortcut to silence the check.
+
+`checkyourvibe` replaces passive error messages with an **interlocked dead-end graph (`notFix`)** across every supported language analyzer:
+
+- **TypeScript:** Reach for `as` to escape `no-any` and `no-as-cast` is waiting. Reach for `@ts-ignore` to escape that and `no-ts-comment` catches it.
+- **C#:** Cast to `dynamic` to bypass type checks and `no-dynamic` triggers. Use `!` to force nullability and `no-null-forgiving` blocks it. Swallow errors in `catch {}` and `no-empty-catch` traps it.
+- **Python:** Silence exceptions with `except Exception: pass` and `no-bare-except` flags it. Use `assert` for runtime validation and `no-assert-for-validation` blocks it.
+- **Rust:** Escape `Result`/`Option` handling with `.unwrap()` and `no-unwrap` catches it. Ignore unused results with `let _ = res` and `no-ignored-result` traps it. Bypass checks with `unsafe` and `no-unsafe-block` triggers.
 
 An agent reading a finding sees both lists: what to do, and which shortcuts lead somewhere worse.
 
-## Runs on your subscriptions
+### Empirical Benchmarking & Not-Fix Proof
 
-Metered agent work gets expensive fast. Flat-rate plans don't, and most people building this way
-hold several. Each capped, each idle most of the time.
+`checkyourvibe` includes an automated benchmark harness (`packages/core/src/benchmark/`) that tests AI agents against deliberate code violation fixtures under `control` (raw linter error) vs. `graph` (full CYV interlock) conditions. 
 
-Ships with **Claude Code, Codex, Cursor, Gemini and Antigravity**, through each one's own hook,
-instructions, guidance and MCP surfaces.
+The harness measures:
+- **Not-Fix Avoidance Rate:** Percentage of trials where the agent avoids prohibited shortcuts.
+- **First-Pass Gate Rate:** Percentage of trials passing compiler gates on the initial turn.
+- **Violation Ping-Pong Reduction:** Elimination of recursive loops between adjacent failing rules.
+
+See the live telemetry output in [docs/media/benchmark-proof-report.md](docs/media/benchmark-proof-report.md).
+
+## 24/7 background execution on flat-rate subscriptions
+
+Metered agent work gets expensive fast. Flat-rate plans don't, and most developers hold several that sit idle most of the day. `checkyourvibe` turns those CLI subscriptions into a continuous background worker pool that operates 24/7 with zero required metered API tokens.
+
+Ships with **Claude Code, Codex, Cursor, Gemini and Antigravity**, through each one's own hook, instructions, guidance and MCP surfaces.
 
 ### One subscription drives. The rest are capacity.
 
@@ -67,22 +94,17 @@ instructions, guidance and MCP surfaces.
               localhost dashboard: what's running, where, and why
 ```
 
-**Which agent** spreads the load. The scheduler knows exactly how many dispatches each lane has in
-flight, because it started them. A lane that begins refusing work goes into cooldown until its next
-success. No agent CLI reports its remaining quota, so you won't see a fake percentage bar here.
+**Which agent** spreads the load across parallel CLI lanes. The scheduler knows exactly how many dispatches each lane has in flight, automatically handles rate-limiting, and routes work into cooldown windows until capacity recovers.
 
-**Which model** is per task, and it is always the smallest one that can do the job. A flat-rate plan
-is not an unmetered one: every subscription bounds what it will do inside a window, and the biggest
-model on a lane reaches that bound soonest. Spending it on a rename across forty files is how you
-find the lane empty when a design decision shows up.
+**Which model** is assigned per task using empirical escalation. A flat-rate plan bounds total token throughput in a rolling window. Spending a top-tier model on a rename across forty files wastes the window before a design decision shows up.
 
-So nothing asks for the top model as a matter of course. A task declares what kind of work it is,
-each lane declares which of its models can handle that kind, and the dispatch takes the smallest
-one. If the gates fail, it retries one step up and records why. Escalation follows a real failure
-rather than a guess about one.
+A task declares what kind of work it is, each lane declares which of its models can handle that kind, and the dispatch takes the smallest model available. If compiler gates fail, the orchestrator retries one step up and records why. Escalation follows an empirical gate failure rather than a guess.
 
-An executor never requires a metered key. Metered lanes are opt-in by name, labelled billed, and
-never an automatic fallback or escalation target.
+An executor never requires a metered API key. Billed metered lanes are opt-in by name and never an automatic fallback or escalation target.
+
+### Scope locking & parallel planning (`cyv plan`)
+
+To prevent multi-agent collisions, tasks in `docs/specs/**/tasks.md` declare explicit `files=` ownership boundaries. `cyv plan` analyzes dependencies and groups open tasks into non-overlapping execution waves. Multiple background lanes execute simultaneously across the workspace without git merge conflicts or file clobbering.
 
 ## `cyv explain`
 
@@ -193,14 +215,16 @@ Suppressions carry a reason and an expiry. There's no bare ignore directive. Ful
 ## Beyond the CLI
 
 ```sh
-cyv dashboard        # browse every rule and the interlock, in a browser
+cyv dashboard        # launch the interactive async control center
 cyv doctor           # check generated agent glue hasn't drifted
 cyv check --sarif    # GitHub code scanning, with the dead ends attached
 cyv watch            # re-run as files change
 ```
 
-`cyv dashboard` reads static manifests only. No analyzer runs to render the page, so you can read
-every rule before installing a compiler.
+`cyv dashboard` serves as your async control center:
+- **Interactive Q&A:** Agents executing in background lanes post questions to the dashboard when encountering design ambiguities. You answer on your time without stalling other active lanes or babysitting a chat prompt.
+- **Live Lane & Queue Monitoring:** Real-time visibility into active dispatches, cooldown states, model tiers, and non-overlapping file wave groupings (`cyv plan`).
+- **Zero-Toolchain Manifest Inspector:** Reads static manifests directly. No language analyzer or SDK runs to render the page, so you can inspect every rule and interlock graph before installing a compiler.
 
 ## Licence
 
