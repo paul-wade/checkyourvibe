@@ -2,11 +2,15 @@
 
 Code standards that hold when an agent is writing the code.
 
-- **A compiler decides, not a model.** Same input, same verdict, every run.
-- **Agent-native rule interlocking.** Tells agents how to fix findings and explicitly blocks the evasion shortcuts (`notFix` dead-ends) they reach for when trying to bypass standard linters.
-- **Zero API token cost required.** Turns idle flat-rate subscriptions into a 24/7 background worker pool with automatic rate-limiting and parallel CLI lane scheduling.
-- **Smart model tiering & empirical escalation.** Runs the smallest model capable of each task, escalating to higher tiers only when AST compiler gates fail.
-- **Async dashboard Q&A.** Moves interaction out of synchronous chat streams into a localhost dashboard where agents work continuously and request human input only when needed.
+A compiler decides what passes, so the same input gets the same verdict every
+run. Findings carry both the fixes that work and the shortcuts that do not,
+because an agent told only that something is wrong will reach for the cheapest
+way to silence it.
+
+It runs work on flat-rate CLI subscriptions rather than metered API tokens,
+picks the smallest model that has been getting the job done, and moves the
+questions agents ask out of the chat stream onto a local dashboard you can
+answer when you get to it.
 
 <p align="center">
   <img src="docs/media/interlock.svg" alt="cyv check reporting a finding with its allowed fixes and the dead ends each would trip" width="880">
@@ -52,9 +56,12 @@ is what the git hook is for.
   <img src="docs/media/interlock-graph.svg" alt="The TypeScript rules drawn as a graph: 14 rules connected by 47 notFix edges" width="620">
 </p>
 
-Standard linters were built for humans who make honest mistakes. When an AI agent encounters a standard linter error, it attempts **satisficing**—finding the cheapest language shortcut to silence the check.
+Standard linters were built for humans who make honest mistakes. An agent that
+hits a linter error looks for the cheapest way to make it stop, which is often
+a different violation the linter does not check for.
 
-`checkyourvibe` replaces passive error messages with an **interlocked dead-end graph (`notFix`)** across every supported language analyzer:
+So each rule names the shortcuts that lead somewhere worse, and the rule
+waiting at the other end:
 
 - **TypeScript:** Reach for `as` to escape `no-any` and `no-as-cast` is waiting. Reach for `@ts-ignore` to escape that and `no-ts-comment` catches it.
 - **C#:** Cast to `dynamic` to bypass type checks and `no-dynamic` triggers. Use `!` to force nullability and `no-null-forgiving` blocks it. Swallow errors in `catch {}` and `no-empty-catch` traps it.
@@ -63,20 +70,41 @@ Standard linters were built for humans who make honest mistakes. When an AI agen
 
 An agent reading a finding sees both lists: what to do, and which shortcuts lead somewhere worse.
 
-### Empirical Benchmarking & Not-Fix Proof
+### Does any of this actually work?
 
-`checkyourvibe` includes an automated benchmark harness (`packages/core/src/benchmark/`) that tests AI agents against deliberate code violation fixtures under `control` (raw linter error) vs. `graph` (full CYV interlock) conditions. 
+The claim above — that a rules file is advisory and a gate is not — is
+measurable, and we measured it in a separate repository rather than here, so
+the harness is not marking its own homework.
 
-The harness measures:
-- **Not-Fix Avoidance Rate:** Percentage of trials where the agent avoids prohibited shortcuts.
-- **First-Pass Gate Rate:** Percentage of trials passing compiler gates on the initial turn.
-- **Violation Ping-Pong Reduction:** Elimination of recursive loops between adjacent failing rules.
+[precedent-poisoning](https://github.com/paul-wade/precedent-poisoning)
+([doi:10.5281/zenodo.22732965](https://doi.org/10.5281/zenodo.22732965))
+seeds a shortcut in one file, asks an agent for a sibling file, and counts how
+often the shortcut is copied. Seven tasks, four environments, 140 trials.
 
-See the live telemetry output in [docs/media/benchmark-proof-report.md](docs/media/benchmark-proof-report.md).
+| environment | copied the shortcut |
+|---|---|
+| the repository alone | 30 / 35 |
+| plus a conventions file | 13 / 35 |
+| plus a pre-write lint gate | 0 / 35 |
+| plus the same linter after the write | 4 / 35 |
+
+The conventions file scored anywhere from 0 to 5 out of 5 depending on which
+task it was given. The gate scored 0 on all seven.
+
+Two things that study does not show. It gates with ESLint, not with
+`checkyourvibe`, so it supports the architecture and says nothing about these
+rules being better than anyone else's. And 0 of 35 is a floor: it means the
+gate caught these seven shortcuts, not that it ranks above some other gate.
+
+`packages/core/src/benchmark/` holds a separate harness for the notFix graph.
+It has not produced a result worth citing yet.
 
 ## 24/7 background execution on flat-rate subscriptions
 
-Metered agent work gets expensive fast. Flat-rate plans don't, and most developers hold several that sit idle most of the day. `checkyourvibe` turns those CLI subscriptions into a continuous background worker pool that operates 24/7 with zero required metered API tokens.
+Metered agent work gets expensive fast. Flat-rate plans don't, and most
+developers hold several that sit idle most of the day. `checkyourvibe` runs
+work across those CLI subscriptions instead, and needs no metered API key to
+do it.
 
 Ships with **Claude Code, Codex, Cursor, Gemini and Antigravity**, through each one's own hook, instructions, guidance and MCP surfaces.
 
@@ -94,17 +122,24 @@ Ships with **Claude Code, Codex, Cursor, Gemini and Antigravity**, through each 
               localhost dashboard: what's running, where, and why
 ```
 
-**Which agent** spreads the load across parallel CLI lanes. The scheduler knows exactly how many dispatches each lane has in flight, automatically handles rate-limiting, and routes work into cooldown windows until capacity recovers.
+The agent choice spreads work across lanes. The scheduler tracks how many
+dispatches each lane has open and holds work back while a lane is rate-limited,
+until its window recovers.
 
-**Which model** is assigned per task using empirical escalation. A flat-rate plan bounds total token throughput in a rolling window. Spending a top-tier model on a rename across forty files wastes the window before a design decision shows up.
+The model choice is per task. A flat-rate plan bounds how much you can spend in
+a rolling window, and putting a top-tier model on a rename across forty files
+burns that window before a design decision turns up.
 
 A task declares what kind of work it is, each lane declares which of its models can handle that kind, and the dispatch takes the smallest model available. If compiler gates fail, the orchestrator retries one step up and records why. Escalation follows an empirical gate failure rather than a guess.
 
 An executor never requires a metered API key. Billed metered lanes are opt-in by name and never an automatic fallback or escalation target.
 
-### Scope locking & parallel planning (`cyv plan`)
+### Keeping lanes off each other's files (`cyv plan`)
 
-To prevent multi-agent collisions, tasks in `docs/specs/**/tasks.md` declare explicit `files=` ownership boundaries. `cyv plan` analyzes dependencies and groups open tasks into non-overlapping execution waves. Multiple background lanes execute simultaneously across the workspace without git merge conflicts or file clobbering.
+A task in `docs/specs/**/tasks.md` declares the files it owns. `cyv plan` reads
+those declarations and groups the open tasks into waves whose file scopes do not
+overlap, so lanes running at the same time cannot clobber each other. The
+scheduler refuses the second of two dispatches that claim the same file.
 
 ## `cyv explain`
 
@@ -221,10 +256,14 @@ cyv check --sarif    # GitHub code scanning, with the dead ends attached
 cyv watch            # re-run as files change
 ```
 
-`cyv dashboard` serves as your async control center:
-- **Interactive Q&A:** Agents executing in background lanes post questions to the dashboard when encountering design ambiguities. You answer on your time without stalling other active lanes or babysitting a chat prompt.
-- **Live Lane & Queue Monitoring:** Real-time visibility into active dispatches, cooldown states, model tiers, and non-overlapping file wave groupings (`cyv plan`).
-- **Zero-Toolchain Manifest Inspector:** Reads static manifests directly. No language analyzer or SDK runs to render the page, so you can inspect every rule and interlock graph before installing a compiler.
+The dashboard is where background work reports in. Agents running in lanes
+post questions to it when they hit something ambiguous, and you answer when
+you get to it rather than sitting in a chat prompt. It shows which dispatches
+are running, which lanes are in cooldown, and which files the next wave would
+touch.
+
+It reads the rule manifests directly, so you can look at every rule and its
+notFix edges without installing a language analyzer first.
 
 ## Licence
 
