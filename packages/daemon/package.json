@@ -1,0 +1,23 @@
+{
+  "name": "@checkyourvibe/daemon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Loopback dispatch daemon for Grok Bot: durable completion events + catch-up.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "cyv-daemon": "./dist/cli.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "scripts": {
+    "start": "node ./dist/cli.js start",
+    "build": "tsc -b"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
