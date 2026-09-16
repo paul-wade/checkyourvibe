@@ -120,6 +120,12 @@ importers:
         specifier: ^3.0.0
         version: 3.0.2
 
+  packages/daemon:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.0.0
+        version: 1.30.0(zod@4.4.3)
+
 packages:
 
   '@asamuzakjp/css-color@6.0.7':

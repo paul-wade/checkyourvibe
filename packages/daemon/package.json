@@ -1,0 +1,26 @@
+{
+  "name": "@checkyourvibe/daemon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Loopback dispatch daemon for Grok Bot: durable completion events + MCP bridge.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "cyv-daemon": "./dist/cli.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "scripts": {
+    "start": "node ./dist/cli.js start",
+    "mcp": "node ./dist/cli.js mcp",
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {}
+}
