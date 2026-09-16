@@ -250,6 +250,35 @@ const DEVIN: AgentCommandSpec = {
 };
 
 /**
+ * Top-level `grok` single-turn flags (`--prompt-file`, `--always-approve`).
+ * Prefer `acceptEdits` over `bypassPermissions` so PreToolUse hooks (cyv gates)
+ * still fire, matching the claude-code entry. Prompt stays in the file the core
+ * wrote ? never as a shell argument.
+ */
+const GROK: AgentCommandSpec = {
+  agentId: 'grok',
+  program: 'grok',
+  invocation:
+    'grok --model <model> --permission-mode acceptEdits --always-approve ' +
+    '--prompt-file <file> --output-format plain',
+  build: ({ model, promptPath }) => ({
+    args: [
+      '--model',
+      model,
+      '--permission-mode',
+      'acceptEdits',
+      '--always-approve',
+      '--prompt-file',
+      promptPath,
+      '--output-format',
+      'plain',
+    ],
+  }),
+  detectsRateLimit: (observation) =>
+    mentions(observation, [...COMMON_RATE_LIMIT_PHRASES, 'rate limit', 'quota exceeded']),
+};
+
+/**
  * Every agent this build knows how to invoke.
  *
  * A lane whose `agentId` is absent from this list has no command line, and
@@ -262,6 +291,7 @@ export const AGENT_COMMANDS: readonly AgentCommandSpec[] = [
   CODEX,
   DEVIN,
   GEMINI,
+  GROK,
 ];
 
 export function agentCommandFor(agentId: string): AgentCommandSpec | undefined {
