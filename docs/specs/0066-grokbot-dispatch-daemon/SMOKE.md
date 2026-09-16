@@ -1,4 +1,4 @@
-﻿# 0066 smoke — overnight catch-up + dogfood
+# 0066 smoke — overnight catch-up + dogfood
 
 Date: 2026-09-15 (America/Chicago)
 
@@ -22,3 +22,6 @@ node packages/daemon/dist/cli.js start --port 4301 --project R:\checkyourvibe
 - MCP for Grok Bot must run on desktop-paul (or any host where the daemon listens). Cursor `AddMcpServer` on the Grok box cannot reach `127.0.0.1:4301` on the PC.
 
 Not published. Local branch `spike/0066-dispatch-daemon` only — do not push without Paul asking.
+
+## Agent skill
+Shared recipe for both host models: .agents/skills/checkyourvibe-cyv/SKILL.md (also installed in Grok Bot skill library as checkyourvibe-cyv).
