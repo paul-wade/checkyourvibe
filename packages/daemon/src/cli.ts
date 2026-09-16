@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * cyv-daemon start — loopback durable event daemon (spec 0066).
+ * cyv-daemon start | mcp — loopback durable event daemon + MCP bridge (spec 0066).
  */
 import { backfillFromDispatches } from './backfill.js';
 import { loadOrCreateToken } from './auth.js';
@@ -8,18 +8,16 @@ import { daemonTokenPath, eventsLogPath } from './paths.js';
 import { startDaemonServer } from './server.js';
 
 function usage(): never {
-  process.stderr.write(`Usage: cyv-daemon start [--port 4301] [--project <cwd>]...\n`);
+  process.stderr.write(
+    `Usage:\n  cyv-daemon start [--port 4301] [--project <cwd>]...\n  cyv-daemon mcp\n`,
+  );
   process.exit(2);
 }
 
-function main(): void {
-  const args = process.argv.slice(2);
-  const cmd = args[0];
-  if (cmd !== 'start') usage();
-
+function startMain(args: string[]): void {
   let port = 4301;
   const projects: string[] = [];
-  for (let i = 1; i < args.length; i++) {
+  for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--port') {
       const raw = args[i + 1];
@@ -60,9 +58,21 @@ function main(): void {
   );
 }
 
-try {
-  main();
-} catch (err) {
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const cmd = args[0];
+  if (cmd === 'start') {
+    startMain(args.slice(1));
+    return;
+  }
+  if (cmd === 'mcp') {
+    await import('./mcp.js');
+    return;
+  }
+  usage();
+}
+
+main().catch((err: unknown) => {
   process.stderr.write(`${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
   process.exit(1);
-}
+});

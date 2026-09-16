@@ -4,6 +4,10 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
 export function readString(obj: Record<string, unknown>, key: string): string | undefined {
   const v = obj[key];
   return typeof v === 'string' ? v : undefined;
