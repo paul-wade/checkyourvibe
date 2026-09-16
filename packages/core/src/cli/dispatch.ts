@@ -769,12 +769,18 @@ async function run(ctx: CommandContext): Promise<number> {
     }
   }
 
-  let executors: Map<string, LaneExecutor>;
-  try {
-    executors = await resolveLaneExecutors(dispatchLanes, ctx.env, repoRoot);
-  } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
-    return 2;
+  // A scheduling refusal must be reported (and recorded) without resolving
+  // third-party CLIs. Otherwise a machine without those agents installed ?
+  // CI runners especially ? returns exit 2 from resolveLaneExecutors before
+  // the overlap/cap refusal at exit 1 is ever reached.
+  let executors: Map<string, LaneExecutor> = new Map();
+  if (preview.decision === 'scheduled') {
+    try {
+      executors = await resolveLaneExecutors(dispatchLanes, ctx.env, repoRoot);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      return 2;
+    }
   }
 
   const prompt = executorPrompt(declaration);
